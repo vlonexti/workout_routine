@@ -61,6 +61,11 @@ Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds the site
 
 **One-time setup:** go to **Settings → Pages** and set **Source** to **GitHub Actions**. This can't be automated — the workflow's built-in token is allowed to manage an existing Pages site but not to create one. Until it's done, the deploy fails at the `configure-pages` step.
 
+Two traps worth knowing, both of which look identical from the browser (a blank white page with the right tab title):
+
+- **Source left on "Deploy from a branch."** GitHub then runs its own `pages build and deployment` job, which copies the repo verbatim — no build step. You end up serving the source `index.html`, whose `<script src="/src/main.tsx">` the browser won't execute, so React never mounts. It also races this workflow and usually lands second, overwriting a perfectly good deploy. Tell them apart by fetching `/README.md`: a 200 means you're getting the raw repo, a 404 means you're getting the build.
+- **Changing the Source doesn't republish.** It only changes what happens on the *next* deploy, so the old output stays live until you push a commit or re-run the workflow.
+
 DNS for `justloofy.dev` already points at the GitHub Pages apex IPs (`185.199.108–111.153`), so nothing needs changing at the registrar.
 
 ## Editing the program
