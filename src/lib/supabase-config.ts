@@ -6,15 +6,23 @@
  *   3. Project Settings -> API -> copy the Project URL and the "anon public" key
  *   4. Paste both below, then commit and push
  *
- * The anon key is designed to be public; it ships inside every Supabase web
- * app. Access is controlled by the row-level security policies in
- * schema.sql, which allow anyone with the URL to read and write because the
- * app has no login. See the README before sharing the link widely.
+ * The publishable key is designed to be public; it ships inside every Supabase
+ * web app and is safe in a browser. Access is controlled by the row-level
+ * security policies in schema.sql, which allow anyone with the URL to read and
+ * write because the app has no login. See the README before sharing the link.
+ *
+ * Never put an sb_secret_... or service_role key in here — those bypass RLS
+ * entirely and this file is bundled into the public site.
  */
 
-export const SUPABASE_URL = ''
+export const SUPABASE_URL = 'https://keednukdajjqjnndvzkt.supabase.co'
 
-export const SUPABASE_ANON_KEY = ''
+/*
+ * The modern publishable key rather than the legacy JWT `anon` key. Both work
+ * against this project today, but the dashboard offers a "Disable JWT-based
+ * API keys" switch that would break the legacy one without warning.
+ */
+export const SUPABASE_ANON_KEY = 'sb_publishable_10YyWGUHIUiZ9557wy7WLg_lOLlMuDs'
 
 /* --- nothing below here needs editing --- */
 
