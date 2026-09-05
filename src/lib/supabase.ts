@@ -224,7 +224,12 @@ export async function loadAll(): Promise<Snapshot> {
     json<BodyweightRow[]>(`bodyweight_entries?select=*&logged_on=gte.${since}&order=logged_on.asc`, {
       headers: headers(),
     }),
-    json<PhaseRow[]>('phases?select=*&order=start_date.asc', { headers: headers() }),
+    // Tolerate a database that has not had the phases migration run yet:
+    // the rest of the app works fine without it, so a missing table should
+    // hide the phase features rather than take the whole site down.
+    json<PhaseRow[]>('phases?select=*&order=start_date.asc', { headers: headers() }).catch(
+      () => [] as PhaseRow[],
+    ),
   ])
 
   const prEntries = prRows.map(toPR)
