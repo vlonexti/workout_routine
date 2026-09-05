@@ -600,21 +600,7 @@ const friday: Exercise[] = [
     why: 'Second brachialis session of the week.',
     loadNote: 'Add weight once all 3 sets reach 15.',
   },
-  {
-    id: 'fri-pushdown',
-    name: 'Triceps Pushdown',
-    equip: 'Cable',
-    sets: 3,
-    reps: '10-15',
-    setSeconds: 40,
-    rest: 60,
-    rpe: '1 RIR',
-    tag: 'accessory',
-    cue: 'Elbows pinned, split the rope at the bottom.',
-    why: 'Lateral head again, at higher reps than Monday.',
-    loadNote: 'Add weight once all 3 sets reach 15.',
-  },
-  {
+    {
     id: 'fri-oh-ext',
     name: 'Overhead Triceps Extension',
     equip: 'Cable',

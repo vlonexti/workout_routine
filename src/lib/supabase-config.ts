@@ -27,8 +27,10 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_10YyWGUHIUiZ9557wy7WLg_lOLlMuDs
 /* --- nothing below here needs editing --- */
 
 const env = import.meta.env as Record<string, string | undefined>
+// .env.local wins over the committed literal, so local development can point
+// at a different project without editing (and accidentally committing) this file.
 const pick = (literal: string, key: string) =>
-  (literal || env[key] || '').trim().replace(/\/+$/, '')
+  (env[key] || literal || '').trim().replace(/\/+$/, '')
 
 export const supabaseUrl = pick(SUPABASE_URL, 'VITE_SUPABASE_URL')
 export const supabaseKey = pick(SUPABASE_ANON_KEY, 'VITE_SUPABASE_ANON_KEY')

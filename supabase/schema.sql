@@ -183,6 +183,67 @@ begin
 end $$;
 
 -- ===========================================================================
+-- starting_weight — the weight a lifter was at when they began tracking.
+-- Never overwritten by a new weigh-in; edited by hand on the Lifters page.
+-- ===========================================================================
+alter table public.lifters add column if not exists starting_weight numeric(6,2);
+
+update public.lifters
+   set starting_weight = bodyweight
+ where starting_weight is null;
+
+-- ===========================================================================
+-- phases — one row per bulk or cut. The open phase is the one with a null
+-- end_date. Switching goal closes the current row and opens a new one, so
+-- the history is preserved rather than overwritten.
+-- ===========================================================================
+create table if not exists public.phases (
+  id           uuid primary key default gen_random_uuid(),
+  lifter_id    uuid         not null references public.lifters(id) on delete cascade,
+  type         text         not null check (type in ('bulk', 'cut')),
+  start_date   date         not null default current_date,
+  start_weight numeric(6,2) not null check (start_weight > 0),
+  end_date     date,
+  end_weight   numeric(6,2),
+  created_at   timestamptz  not null default now(),
+  check (end_date is null or end_date >= start_date)
+);
+
+create index if not exists phases_lifter_idx
+  on public.phases (lifter_id, start_date desc);
+
+-- At most one open phase per lifter.
+create unique index if not exists phases_one_open_per_lifter
+  on public.phases (lifter_id) where end_date is null;
+
+-- Give every existing lifter an open phase matching their current goal, so
+-- the progress panels have a start date to measure from.
+do $$
+declare
+  l record;
+  first_weigh_in date;
+  first_weight numeric;
+begin
+  for l in select * from public.lifters loop
+    if exists (select 1 from public.phases p where p.lifter_id = l.id and p.end_date is null) then
+      continue;
+    end if;
+
+    select logged_on, weight into first_weigh_in, first_weight
+      from public.bodyweight_entries
+     where lifter_id = l.id
+     order by logged_on asc
+     limit 1;
+
+    insert into public.phases (lifter_id, type, start_date, start_weight)
+    values (l.id,
+            l.goal,
+            coalesce(first_weigh_in, current_date),
+            coalesce(l.starting_weight, first_weight, l.bodyweight));
+  end loop;
+end $$;
+
+-- ===========================================================================
 -- Row-level security
 --
 -- The app has no login, so every visitor reaches Postgres as the anonymous
@@ -198,11 +259,13 @@ alter table public.lifters            enable row level security;
 alter table public.pr_entries         enable row level security;
 alter table public.bodyweight_entries enable row level security;
 alter table public.set_logs           enable row level security;
+alter table public.phases             enable row level security;
 
 drop policy if exists lifters_anon_all            on public.lifters;
 drop policy if exists pr_entries_anon_all         on public.pr_entries;
 drop policy if exists bodyweight_entries_anon_all on public.bodyweight_entries;
 drop policy if exists set_logs_anon_all           on public.set_logs;
+drop policy if exists phases_anon_all             on public.phases;
 
 create policy lifters_anon_all on public.lifters
   for all to anon, authenticated using (true) with check (true);
@@ -214,6 +277,9 @@ create policy bodyweight_entries_anon_all on public.bodyweight_entries
   for all to anon, authenticated using (true) with check (true);
 
 create policy set_logs_anon_all on public.set_logs
+  for all to anon, authenticated using (true) with check (true);
+
+create policy phases_anon_all on public.phases
   for all to anon, authenticated using (true) with check (true);
 
 -- ===========================================================================

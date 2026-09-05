@@ -15,10 +15,12 @@ import type {
   Lifter,
   PRKey,
   PREntry,
+  Phase,
   Unit,
   WednesdayVariant,
 } from './types'
 import * as db from './supabase'
+import { entryThisMonth, openPhase, todayISO } from './progress'
 
 /**
  * The only thing kept on the device is which lifter this browser had open
@@ -35,9 +37,10 @@ interface Data {
   lifters: Lifter[]
   prEntries: PREntry[]
   bodyweight: BodyweightEntry[]
+  phases: Phase[]
 }
 
-const EMPTY: Data = { lifters: [], prEntries: [], bodyweight: [] }
+const EMPTY: Data = { lifters: [], prEntries: [], bodyweight: [], phases: [] }
 
 interface Store {
   status: LoadStatus
@@ -64,6 +67,14 @@ interface Store {
   prDelta: (id: string, lift: PRKey) => number | null
 
   bodyweightHistory: (id: string) => BodyweightEntry[]
+  /** Records this month's weigh-in, replacing an existing one for the month. */
+  logWeight: (id: string, weight: number) => void
+  weighInThisMonth: (id: string) => BodyweightEntry | null
+
+  phases: Phase[]
+  currentPhase: (id: string) => Phase | null
+  /** Ends the running phase and opens a new one at today's weight. */
+  switchGoal: (id: string, goal: Goal) => void
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -116,6 +127,7 @@ async function migrateLegacyLocalData(): Promise<boolean> {
         accent: (p.accent as AccentKey) ?? 'ember',
         unit: p.unit === 'kg' ? 'kg' : 'lb',
         bodyweight: p.bodyweight && p.bodyweight > 0 ? p.bodyweight : 165,
+        startingWeight: p.bodyweight && p.bodyweight > 0 ? p.bodyweight : 165,
         goal: p.goal === 'cut' ? 'cut' : 'bulk',
         trainingWeek: parsed.week ?? 1,
         wednesday: 'auto',
@@ -278,32 +290,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       writeActive(id)
     },
 
+    // Editing the profile never writes a weigh-in — that is what "Add weight"
+    // is for, so the monthly history stays deliberate rather than incidental.
     updateLifter: (id, patch) => {
-      const bodyweightChanged =
-        patch.bodyweight !== undefined &&
-        patch.bodyweight !== lifters.find((l) => l.id === id)?.bodyweight
-      const bwEntry: BodyweightEntry | null = bodyweightChanged
-        ? {
-            id: db.newId(),
-            lifterId: id,
-            weight: patch.bodyweight!,
-            unit: patch.unit ?? lifters.find((l) => l.id === id)?.unit ?? 'lb',
-            loggedOn: db.today(),
-          }
-        : null
-
       mutate(
-        (d) => ({
-          ...d,
-          lifters: d.lifters.map((l) => (l.id === id ? { ...l, ...patch } : l)),
-          bodyweight: bwEntry
-            ? [...d.bodyweight.filter((b) => !(b.lifterId === id && b.loggedOn === bwEntry.loggedOn)), bwEntry]
-            : d.bodyweight,
-        }),
-        async () => {
-          await db.updateLifter(id, patch)
-          if (bwEntry) await db.upsertBodyweight(bwEntry)
-        },
+        (d) => ({ ...d, lifters: d.lifters.map((l) => (l.id === id ? { ...l, ...patch } : l)) }),
+        () => db.updateLifter(id, patch),
       )
     },
 
@@ -314,6 +306,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         accent,
         unit: lifter?.unit ?? 'lb',
         bodyweight: 165,
+        startingWeight: 165,
         goal: 'bulk',
         trainingWeek: 1,
         wednesday: 'legs',
@@ -322,11 +315,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         prs: {},
         createdAt: Date.now(),
       }
+      const firstPhase: Phase = {
+        id: db.newId(),
+        lifterId: lifterRow.id,
+        type: lifterRow.goal,
+        startDate: todayISO(),
+        startWeight: lifterRow.bodyweight,
+        endDate: null,
+        endWeight: null,
+      }
       setActiveId(lifterRow.id)
       writeActive(lifterRow.id)
       mutate(
-        (d) => ({ ...d, lifters: [...d.lifters, lifterRow] }),
-        () => db.insertLifter(lifterRow),
+        (d) => ({ ...d, lifters: [...d.lifters, lifterRow], phases: [...d.phases, firstPhase] }),
+        async () => {
+          await db.insertLifter(lifterRow)
+          await db.insertPhase(firstPhase)
+        },
       )
     },
 
@@ -342,12 +347,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           lifters: d.lifters.filter((l) => l.id !== id),
           prEntries: d.prEntries.filter((e) => e.lifterId !== id),
           bodyweight: d.bodyweight.filter((b) => b.lifterId !== id),
+          phases: d.phases.filter((p) => p.lifterId !== id),
         }),
         () => db.deleteLifter(id),
       )
     },
 
-    setGoal: (goal) => store.updateLifter(lifter.id, { goal }),
+    setGoal: (goal) => store.switchGoal(lifter.id, goal),
     setUnit: (id, unit) => store.updateLifter(id, { unit }),
     setTrainingWeek: (week) => {
       const w = ((((week - 1) % 4) + 4) % 4) + 1
@@ -395,6 +401,74 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     bodyweightHistory: (id) =>
       data.bodyweight.filter((b) => b.lifterId === id).sort((a, b) => a.loggedOn.localeCompare(b.loggedOn)),
+
+    weighInThisMonth: (id) => entryThisMonth(data.bodyweight, id),
+
+    logWeight: (id, weight) => {
+      const owner = lifters.find((l) => l.id === id)
+      if (!owner || !(weight > 0)) return
+      const existing = entryThisMonth(data.bodyweight, id)
+      const entry: BodyweightEntry = {
+        id: existing?.id ?? db.newId(),
+        lifterId: id,
+        weight,
+        unit: owner.unit,
+        // Reuse the existing row's date so a correction stays one monthly entry.
+        loggedOn: existing?.loggedOn ?? todayISO(),
+      }
+      mutate(
+        (d) => ({
+          ...d,
+          // The weigh-in is also the lifter's current bodyweight.
+          lifters: d.lifters.map((l) => (l.id === id ? { ...l, bodyweight: weight } : l)),
+          bodyweight: [...d.bodyweight.filter((b) => b.id !== entry.id), entry],
+        }),
+        async () => {
+          await db.upsertBodyweight(entry)
+          await db.updateLifter(id, { bodyweight: weight })
+        },
+      )
+    },
+
+    phases: data.phases,
+
+    currentPhase: (id) => openPhase(data.phases, id),
+
+    switchGoal: (id, goal) => {
+      const owner = lifters.find((l) => l.id === id)
+      if (!owner || owner.goal === goal) return
+      const today = todayISO()
+      const running = openPhase(data.phases, id)
+      const next: Phase = {
+        id: db.newId(),
+        lifterId: id,
+        type: goal,
+        startDate: today,
+        startWeight: owner.bodyweight,
+        endDate: null,
+        endWeight: null,
+      }
+      mutate(
+        (d) => ({
+          ...d,
+          lifters: d.lifters.map((l) => (l.id === id ? { ...l, goal } : l)),
+          phases: [
+            ...d.phases.map((p) =>
+              running && p.id === running.id
+                ? { ...p, endDate: today, endWeight: owner.bodyweight }
+                : p,
+            ),
+            next,
+          ],
+        }),
+        async () => {
+          // Close first: the partial unique index allows only one open phase.
+          if (running) await db.closePhase(running.id, today, owner.bodyweight)
+          await db.insertPhase(next)
+          await db.updateLifter(id, { goal })
+        },
+      )
+    },
 
   }
 

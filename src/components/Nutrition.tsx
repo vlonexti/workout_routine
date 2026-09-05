@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { GROCERY, PLANS, RECIPES, SUPPLEMENTS } from '../data/nutrition'
 import { useStore } from '../lib/store'
 import { targetsFor } from '../lib/calc'
+import { PHASE_LABEL, formatDate, phasePosition, phaseProgress, signedWeight } from '../lib/progress'
 import type { Goal, Recipe } from '../lib/types'
 import { Button, Chevron, MacroBar, Tag } from './ui'
 
@@ -83,9 +84,15 @@ function MealRow({ recipe }: { recipe: Recipe }) {
 }
 
 export default function Nutrition({ goal }: { goal: Goal }) {
-  const { lifter, updateLifter } = useStore()
+  const [confirmSwitch, setConfirmSwitch] = useState(false)
+  const { lifter, setGoal, currentPhase, bodyweightHistory } = useStore()
   const plan = PLANS[goal]
   const targets = targetsFor(lifter, goal)
+
+  // Only describe the phase on the page that matches the lifter's actual goal.
+  const phase = currentPhase(lifter.id)
+  const progress =
+    phase && phase.type === goal ? phaseProgress(lifter, phase, bodyweightHistory(lifter.id)) : null
 
   const meals = useMemo(
     () =>
@@ -124,9 +131,21 @@ export default function Nutrition({ goal }: { goal: Goal }) {
         <div className="flex items-center gap-2.5">
           {isActive ? (
             <Tag tone="good">Current goal</Tag>
+          ) : confirmSwitch ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="t-meta">
+                End {lifter.name}&apos;s {lifter.goal} and begin a {goal}?
+              </span>
+              <Button size="sm" variant="primary" onClick={() => { setGoal(goal); setConfirmSwitch(false) }}>
+                Start {goal}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmSwitch(false)}>
+                Cancel
+              </Button>
+            </div>
           ) : (
-            <Button size="sm" onClick={() => updateLifter(lifter.id, { goal })}>
-              Set as {lifter.name}&apos;s goal
+            <Button size="sm" onClick={() => setConfirmSwitch(true)}>
+              Switch to {goal}
             </Button>
           )}
         </div>
@@ -171,6 +190,36 @@ export default function Nutrition({ goal }: { goal: Goal }) {
             </p>
           </div>
         </div>
+
+        {progress && (
+          <div className="mt-6 border-t border-rule-soft pt-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <span className="t-label">{PHASE_LABEL[progress.phase.type]} progress</span>
+              <span className="t-meta mono">
+                Started {formatDate(progress.phase.startDate)} · {phasePosition(progress)}
+              </span>
+            </div>
+            <p className="mono mt-1.5 text-[13px] text-ink-2">
+              {progress.startWeight} → {progress.currentWeight} {lifter.unit}
+              <span className="text-ink-4"> · </span>
+              <span className={progress.change > 0 ? 'text-good' : progress.change < 0 ? 'text-ink' : 'text-ink-3'}>
+                {signedWeight(progress.change, lifter.unit)}
+              </span>
+              {progress.perWeek != null && (
+                <>
+                  <span className="text-ink-4"> · </span>
+                  {signedWeight(progress.perWeek, lifter.unit)}/wk average
+                </>
+              )}
+            </p>
+            <p className="t-meta mt-1">
+              {progress.advice}
+              {progress.reviewMonth && progress.perWeek != null && (
+                <> Review around {progress.reviewMonth}.</>
+              )}
+            </p>
+          </div>
+        )}
       </section>
 
       {/* Meal plan is the main content */}

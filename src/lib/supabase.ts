@@ -6,6 +6,7 @@ import type {
   Lifter,
   PRKey,
   PREntry,
+  Phase,
   TargetOverrides,
   Unit,
   WednesdayVariant,
@@ -89,6 +90,7 @@ interface LifterRow {
   accent: string
   unit: string
   bodyweight: number | string
+  starting_weight: number | string | null
   goal: string
   training_week: number
   wednesday: string
@@ -126,6 +128,7 @@ function toLifter(r: LifterRow, prs: Partial<Record<PRKey, number>>): Lifter {
     accent: (r.accent || 'ember') as AccentKey,
     unit: (r.unit === 'kg' ? 'kg' : 'lb') as Unit,
     bodyweight: num(r.bodyweight) || 165,
+    startingWeight: r.starting_weight == null ? num(r.bodyweight) || 165 : num(r.starting_weight),
     goal: (r.goal === 'cut' ? 'cut' : 'bulk') as Goal,
     trainingWeek: r.training_week || 1,
     wednesday: ((r.wednesday === 'core' || r.wednesday === 'legs') ? r.wednesday : 'auto') as WednesdayVariant,
@@ -162,6 +165,28 @@ function toBodyweight(r: BodyweightRow): BodyweightEntry {
   }
 }
 
+interface PhaseRow {
+  id: string
+  lifter_id: string
+  type: string
+  start_date: string
+  start_weight: number | string
+  end_date: string | null
+  end_weight: number | string | null
+}
+
+function toPhase(r: PhaseRow): Phase {
+  return {
+    id: r.id,
+    lifterId: r.lifter_id,
+    type: r.type === 'cut' ? 'cut' : 'bulk',
+    startDate: r.start_date,
+    startWeight: num(r.start_weight),
+    endDate: r.end_date,
+    endWeight: r.end_weight == null ? null : num(r.end_weight),
+  }
+}
+
 /** Newest entry per lift wins — that is the lifter's current PR. */
 export function currentPRs(entries: PREntry[]): Partial<Record<PRKey, number>> {
   const out: Partial<Record<PRKey, number>> = {}
@@ -184,20 +209,22 @@ export interface Snapshot {
   lifters: Lifter[]
   prEntries: PREntry[]
   bodyweight: BodyweightEntry[]
+  phases: Phase[]
 }
 
-/** Everything the app needs, in three parallel requests. */
+/** Everything the app needs, in four parallel requests. */
 export async function loadAll(): Promise<Snapshot> {
   // 120 days of history is plenty for deltas and the "last session" line, and
   // keeps the payload small enough to fetch on every load.
   const since = today(new Date(Date.now() - 120 * 86_400_000))
 
-  const [lifterRows, prRows, bwRows] = await Promise.all([
+  const [lifterRows, prRows, bwRows, phaseRows] = await Promise.all([
     json<LifterRow[]>('lifters?select=*&order=sort_order.asc,created_at.asc', { headers: headers() }),
     json<PRRow[]>('pr_entries?select=*&order=recorded_at.asc', { headers: headers() }),
     json<BodyweightRow[]>(`bodyweight_entries?select=*&logged_on=gte.${since}&order=logged_on.asc`, {
       headers: headers(),
     }),
+    json<PhaseRow[]>('phases?select=*&order=start_date.asc', { headers: headers() }),
   ])
 
   const prEntries = prRows.map(toPR)
@@ -212,6 +239,7 @@ export async function loadAll(): Promise<Snapshot> {
     lifters: lifterRows.map((r) => toLifter(r, currentPRs(byLifter.get(r.id) ?? []))),
     prEntries,
     bodyweight: bwRows.map(toBodyweight),
+    phases: phaseRows.map(toPhase),
   }
 }
 
@@ -225,7 +253,15 @@ const UPSERT = { Prefer: 'resolution=merge-duplicates,return=minimal' }
 type LifterPatch = Partial<
   Pick<
     Lifter,
-    'name' | 'accent' | 'unit' | 'bodyweight' | 'goal' | 'trainingWeek' | 'wednesday' | 'sortOrder'
+    | 'name'
+    | 'accent'
+    | 'unit'
+    | 'bodyweight'
+    | 'startingWeight'
+    | 'goal'
+    | 'trainingWeek'
+    | 'wednesday'
+    | 'sortOrder'
   >
 > & { targets?: TargetOverrides }
 
@@ -235,6 +271,7 @@ function lifterPayload(patch: LifterPatch): Record<string, unknown> {
   if (patch.accent !== undefined) out.accent = patch.accent
   if (patch.unit !== undefined) out.unit = patch.unit
   if (patch.bodyweight !== undefined) out.bodyweight = patch.bodyweight
+  if (patch.startingWeight !== undefined) out.starting_weight = patch.startingWeight
   if (patch.goal !== undefined) out.goal = patch.goal
   if (patch.trainingWeek !== undefined) out.training_week = patch.trainingWeek
   if (patch.wednesday !== undefined) out.wednesday = patch.wednesday
@@ -269,6 +306,7 @@ export async function insertLifter(lifter: Lifter): Promise<void> {
         accent: lifter.accent,
         unit: lifter.unit,
         bodyweight: lifter.bodyweight,
+        starting_weight: lifter.startingWeight,
         goal: lifter.goal,
         training_week: lifter.trainingWeek,
         wednesday: lifter.wednesday,
@@ -331,4 +369,50 @@ export async function upsertBodyweight(entry: BodyweightEntry): Promise<void> {
 export async function isEmpty(): Promise<boolean> {
   const rows = await json<{ id: string }[]>('lifters?select=id&limit=1', { headers: headers() })
   return rows.length === 0
+}
+
+/* ------------------------------------------------------------------ */
+/*  Phases                                                             */
+/* ------------------------------------------------------------------ */
+
+export async function insertPhase(phase: Phase): Promise<void> {
+  await request('phases', {
+    method: 'POST',
+    headers: headers(MINIMAL),
+    body: JSON.stringify([
+      {
+        id: phase.id,
+        lifter_id: phase.lifterId,
+        type: phase.type,
+        start_date: phase.startDate,
+        start_weight: phase.startWeight,
+        end_date: phase.endDate,
+        end_weight: phase.endWeight,
+      },
+    ]),
+  })
+}
+
+/** Closes an open phase with the date and weight it finished at. */
+export async function closePhase(id: string, endDate: string, endWeight: number): Promise<void> {
+  await request(`phases?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: headers(MINIMAL),
+    body: JSON.stringify({ end_date: endDate, end_weight: endWeight }),
+  })
+}
+
+export async function updatePhase(
+  id: string,
+  patch: { startDate?: string; startWeight?: number },
+): Promise<void> {
+  const body: Record<string, unknown> = {}
+  if (patch.startDate !== undefined) body.start_date = patch.startDate
+  if (patch.startWeight !== undefined) body.start_weight = patch.startWeight
+  if (!Object.keys(body).length) return
+  await request(`phases?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: headers(MINIMAL),
+    body: JSON.stringify(body),
+  })
 }

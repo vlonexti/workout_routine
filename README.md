@@ -6,12 +6,13 @@ Live at **[justloofy.dev](https://justloofy.dev)**.
 
 ## What it does
 
-- **Workouts** — Mon chest (heavy), Tue back (heavy), Wed legs *or* arms, Thu chest (volume), Fri back + arms. Weekends off. Sessions are programmed to land around 2h 20m including rest.
+- **Workouts** — Mon chest + shoulders, Tue back + biceps, Wed core *or* legs, Thu chest volume + delts, Fri back volume + arms. Weekends off. Upper-body focus: side delts, rear delts, lats, upper chest, arms, forearms and core carry the volume. Sessions run 17-24 working sets, roughly 60-90 minutes.
 - **Percentage-based loading.** Every working weight is a share of that lifter's one-rep max. Enter a bench number and the whole program fills in; blanks are derived from the lifts you did enter and flagged as estimated.
 - **A four-week wave.** Weeks 1–3 climb, week 4 deloads. The multiplier scales main lifts and light accessories alike.
-- **Set logging.** Tap a set number to record it with the target weight and reps. Sessions build history, which is where the "last session" line on each exercise comes from.
+- **Wednesday rotation.** Odd training weeks are Core + Forearms, even weeks are Legs + Core, so legs run once a fortnight. Derived from the training week, which already persists per lifter.
 - **Bulk and Cut** — calorie and protein targets computed from bodyweight and goal, a full day of meals with macros and recipes, a grocery list and a supplement rundown.
-- **Lifters** — per-athlete PRs with change-over-time, bodyweight history, goal, units and colour.
+- **Lifters** — per-athlete PRs with change-over-time, a starting weight, monthly weigh-ins with a trend line, goal, units and colour.
+- **Phases** — each bulk or cut is recorded with its start date and weight. Switching goal closes the running phase and opens a new one, so the history survives. Bulk and Cut pages show where you are in the current phase and a hedged estimate of how long is left, calculated only from weigh-ins that actually exist.
 
 Everything is per lifter, including the training week. Steven can be in week 3 while Zach is in week 1.
 
@@ -53,8 +54,8 @@ There is no login, so the browser talks to Postgres as the anonymous role and th
 | --- | --- |
 | `lifters` | One row per athlete: name, bodyweight, unit, goal, colour, training week, Wednesday variant, optional nutrition target overrides. |
 | `pr_entries` | Append-only. Newest row per lift is the current PR; the older rows are what make the `+10 lb` change honest. |
-| `bodyweight_entries` | One weigh-in per lifter per day, unique on `(lifter_id, logged_on)`. Drives the trend line. |
-| `set_logs` | One row per completed set with weight, reps and training week. Unique on `(lifter_id, performed_on, day_key, exercise_id, set_index)`. |
+| `bodyweight_entries` | Monthly weigh-ins, unique on `(lifter_id, logged_on)`. Adding a second in the same month updates the existing row. |
+| `phases` | One row per bulk or cut: start date, start weight, and the end date/weight once it closes. The open phase is the one with a null `end_date`; a partial unique index allows only one per lifter. |
 
 Everything cascades from `lifters` on delete. Writes are optimistic: the UI moves first, and if Postgres rejects the change the previous state is restored and the header says **Not saved** rather than silently losing it.
 

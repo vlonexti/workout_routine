@@ -81,16 +81,20 @@ function ExerciseRow({ ex, week }: { ex: Exercise; week: number }) {
           </div>
         </div>
 
+        {/* Fixed-width column so calculated loads and "By feel" line up. */}
         <div className="flex shrink-0 items-start gap-3">
-          <div className="w-[124px] text-right sm:w-[156px]">
-            <div className="mono text-[16px] font-600 leading-none text-ink">{load.display}</div>
-            {plates && <div className="mono mt-1 text-[11.5px] text-ink-3">{plates}</div>}
-            {load.estimated && <div className="mt-1 text-[11px] text-warn">Estimated PR</div>}
-            {load.pct == null && ex.loadNote && (
-              <div className="mt-1 text-[11.5px] leading-snug text-ink-3">{ex.loadNote}</div>
-            )}
+          <div className="w-[112px] text-right sm:w-[132px]">
+            <div
+              className={`mono text-[15px] font-600 leading-none ${
+                load.pct == null ? 'text-ink-3' : 'text-ink'
+              }`}
+            >
+              {load.display}
+            </div>
+            {plates && <div className="mono mt-1 text-[11px] text-ink-4">{plates}</div>}
+            {load.estimated && <div className="mt-1 text-[11px] text-ink-4">estimated</div>}
           </div>
-          <Chevron open={open} className="mt-1.5 text-ink-3" />
+          <Chevron open={open} className="mt-1 text-ink-4" />
         </div>
       </button>
 
@@ -104,7 +108,7 @@ function ExerciseRow({ ex, week }: { ex: Exercise; week: number }) {
               <p className="t-body">{ex.why}</p>
             </>
           )}
-          {ex.loadNote && load.pct != null && (
+          {ex.loadNote && (
             <>
               <span className="t-label sm:pt-0.5">Loading</span>
               <p className="t-body">{ex.loadNote}</p>

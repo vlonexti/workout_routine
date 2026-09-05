@@ -57,6 +57,8 @@ export interface Lifter {
   name: string
   unit: Unit
   bodyweight: number
+  /** Weight when this lifter began tracking. Never auto-overwritten. */
+  startingWeight: number
   goal: Goal
   prs: Partial<Record<PRKey, number>>
   accent: AccentKey
@@ -85,6 +87,17 @@ export interface BodyweightEntry {
   weight: number
   unit: Unit
   loggedOn: string
+}
+
+export interface Phase {
+  id: string
+  lifterId: string
+  type: Goal
+  startDate: string
+  startWeight: number
+  /** Null while the phase is still running. */
+  endDate: string | null
+  endWeight: number | null
 }
 
 /* ------------------------------------------------------------------ */
