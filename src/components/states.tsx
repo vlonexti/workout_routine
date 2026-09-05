@@ -69,8 +69,11 @@ export function SetupScreen() {
   return (
     <div className="shell flex min-h-[70dvh] items-center justify-center py-10">
       <div className="w-full max-w-xl">
-        <Wordmark className="mb-6" />
-        <span className="t-label">Setup required</span>
+        {/* Wordmark is inline-flex, so it needs its own block to sit above. */}
+        <div className="mb-7">
+          <Wordmark />
+        </div>
+        <span className="t-label block">Setup required</span>
         <h1 className="t-page mt-2">Connect the database</h1>
         <p className="t-body mt-3 max-w-lg">
           IRON keeps every lifter, PR and logged set in Postgres so the same numbers show up on any
