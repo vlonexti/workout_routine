@@ -8,20 +8,38 @@ Live at **[justloofy.dev](https://justloofy.dev)**.
 
 - **Workouts** — Mon chest (heavy), Tue back (heavy), Wed legs *or* arms, Thu chest (volume), Fri back (volume) + arms. Weekends off. Every session is programmed to land around 2h 20m including rest and talking.
 - **Every weight is a percentage of your PRs.** Enter one bench number and the whole program fills in; anything you leave blank is estimated from the lifts you did enter and flagged as such.
-- **A 4-week wave.** Weeks 1-3 climb, week 4 deloads. The week selector at the top of the Workouts page rescales every number on the page.
+- **A 4-week wave.** Weeks 1–3 climb, week 4 deloads. The week selector rescales every number on the page.
 - **Rest timers.** Tap a set when you finish it and the timer starts, beeps and vibrates when rest is over.
 - **Bulk and Cut** — calorie and protein targets from your bodyweight, a full day of meals with macros and recipes, a grocery list, and an honest read on supplements.
-- **Lifters** — add people, edit PRs, estimate a 1RM from a set you've actually done, and back your data up to a file.
+- **Lifters** — add people, edit PRs, estimate a 1RM from a set you've actually done.
 
-## Where the data lives
+## Connecting the database
 
-In your browser's `localStorage`. No login, no account, no server. That means:
+Out of the box the site saves to the browser it's open in. To have everyone share one set of lifters, PRs and completed sets:
 
-- Your PRs stay on the device you entered them on.
-- Use **Download backup** on the Lifters page and **Load a backup** on the other device to move between phone and laptop.
-- Clearing your browser's site data will wipe it, so take a backup occasionally.
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the Supabase dashboard open **SQL Editor → New query**, paste the whole of [`supabase/schema.sql`](supabase/schema.sql), and run it. It creates the three tables, the access policies, and seeds Steven and Zach.
+3. Go to **Project Settings → API** and copy the **Project URL** and the **anon public** key.
+4. Paste both into the top of [`src/lib/cloud-config.ts`](src/lib/cloud-config.ts).
+5. Commit and push. The site redeploys and the dot in the header turns green.
 
-If you ever want shared, synced data across everyone, the whole persistence layer is one file — [`src/lib/store.tsx`](src/lib/store.tsx) — and swapping `localStorage` for Supabase means changing `load()` and the save effect there. Nothing else in the app touches storage.
+The header shows the connection state at all times: grey "This device only", amber "Syncing…", green "Saved for everyone", red if it can't reach the database. Writes are optimistic — if the connection drops mid-session you keep training against the local copy, and the next successful write or refresh brings it back in line.
+
+### About the security tradeoff
+
+There's no login, which is what you asked for, so the site talks to Supabase as the anonymous role. The row-level security policies in `schema.sql` therefore allow anyone who has the URL to read and write. That's fine for a few friends. It does mean that if the link spreads, someone could edit or delete your PRs.
+
+The anon key itself being public is normal and not the issue — it ships in every Supabase web app. The permissive policy is the thing to change if it ever matters. Two options, in order of effort: gate writes on a shared secret passed as a header, or turn on Supabase Auth with a magic link. Say the word and I'll wire either one up.
+
+## Data model
+
+| Table | What's in it |
+| --- | --- |
+| `profiles` | One row per lifter: name, bodyweight, unit, goal, colour, and PRs as JSON. |
+| `app_settings` | One row, `shared` — the current training week and whether Wednesday is legs or arms. |
+| `set_logs` | One row per completed set, stamped with the date so each session starts clean and you get a training history for free. Rows older than 90 days are pruned automatically. |
+
+Which lifter is selected is deliberately **not** synced — that's per-device, so Steven's phone and Zach's phone can each stay on their own profile.
 
 ## Running it locally
 
@@ -41,9 +59,9 @@ npm run preview   # serve the production build
 
 Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds the site and publishes it to GitHub Pages. `public/CNAME` pins the custom domain to `justloofy.dev`.
 
-**One-time setup:** go to **Settings → Pages** and set **Source** to **GitHub Actions**. This cannot be automated — the workflow's built-in token is allowed to manage an existing Pages site but not to create one. Until it's done, the deploy fails at the `configure-pages` step.
+**One-time setup:** go to **Settings → Pages** and set **Source** to **GitHub Actions**. This can't be automated — the workflow's built-in token is allowed to manage an existing Pages site but not to create one. Until it's done, the deploy fails at the `configure-pages` step.
 
-DNS for `justloofy.dev` already points at the GitHub Pages apex IPs (`185.199.108-111.153`), so nothing needs changing at the registrar.
+DNS for `justloofy.dev` already points at the GitHub Pages apex IPs (`185.199.108–111.153`), so nothing needs changing at the registrar.
 
 ## Editing the program
 
@@ -57,4 +75,4 @@ Session length is computed, not hardcoded: `sessionMinutes()` adds up warm-up mi
 
 ## Stack
 
-React 19, TypeScript, Tailwind CSS 4, Vite. No router and no backend — `base: './'` in the Vite config keeps the build working on the custom domain and on `github.io/workout_routine/` alike.
+React 19, TypeScript, Tailwind CSS 4, Vite. Supabase is reached over plain `fetch` against its REST API rather than the SDK — the whole surface is three tables, which isn't worth 50 kB of client. No router: `base: './'` keeps the build working on the custom domain and on `github.io/workout_routine/` alike.
