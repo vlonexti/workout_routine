@@ -1,78 +1,91 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { ACCENTS, useStore } from '../lib/store'
 import { PR_HINT, PR_LABEL, estimate1RM, resolvePR, targetsFor } from '../lib/calc'
-import type { AccentKey, PRKey } from '../lib/types'
-import { Button, Pill, SectionTitle, Segmented, Stat } from './ui'
+import { PR_KEYS, type AccentKey, type BodyweightEntry, type Lifter, type PRKey } from '../lib/types'
+import { Button, Field, NumberInput, Segmented, Select, TextInput, Tag, useDraft } from './ui'
 
-const PR_GROUPS: { title: string; note: string; keys: PRKey[] }[] = [
-  {
-    title: 'Press',
-    note: 'Drives Monday and Thursday, plus every triceps and shoulder movement.',
-    keys: ['bench', 'inclineBench', 'cgbp', 'ohp', 'dbBench'],
-  },
-  {
-    title: 'Pull',
-    note: 'Drives Tuesday and Friday — rows, pulldowns, pull-ups.',
-    keys: ['deadlift', 'row', 'dbRow', 'pulldown', 'pullup'],
-  },
-  {
-    title: 'Legs & arms',
-    note: 'Drives Wednesday, whichever version you are running.',
-    keys: ['squat', 'rdl', 'curl'],
-  },
+const PR_GROUPS: { title: string; keys: PRKey[] }[] = [
+  { title: 'Press', keys: ['bench', 'inclineBench', 'cgbp', 'ohp', 'dbBench'] },
+  { title: 'Pull', keys: ['deadlift', 'row', 'dbRow', 'pulldown', 'pullup'] },
+  { title: 'Legs & arms', keys: ['squat', 'rdl', 'curl'] },
 ]
 
-function PRRow({ prKey, profileId }: { prKey: PRKey; profileId: string }) {
-  const { profile, setPR } = useStore()
-  const resolved = resolvePR(profile, prKey)
-  const entered = profile.prs[prKey]
-  const [draft, setDraft] = useState(entered ? String(entered) : '')
+const HEADLINE: PRKey[] = ['bench', 'squat', 'deadlift']
 
-  useEffect(() => {
-    setDraft(entered ? String(entered) : '')
-  }, [profileId, entered])
+/* ------------------------------------------------------------------ */
+/*  Bodyweight sparkline — only drawn when real history exists          */
+/* ------------------------------------------------------------------ */
+
+function Sparkline({ entries }: { entries: BodyweightEntry[] }) {
+  if (entries.length < 2) return null
+  const w = 260
+  const h = 44
+  const values = entries.map((e) => e.weight)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const pts = entries.map((e, i) => {
+    const x = (i / (entries.length - 1)) * (w - 2) + 1
+    const y = h - 4 - ((e.weight - min) / span) * (h - 10)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  })
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-11 w-full max-w-[260px]" role="img" aria-label="Bodyweight trend">
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke="var(--lifter)"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx={pts[pts.length - 1].split(',')[0]} cy={pts[pts.length - 1].split(',')[1]} r="2.5" fill="var(--lifter)" />
+    </svg>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+
+function PRField({ lifterId, lift }: { lifterId: string; lift: PRKey }) {
+  const { lifter, setPR, prDelta } = useStore()
+  const entered = lifter.prs[lift]
+  const resolved = resolvePR(lifter, lift)
+  const [draft, setDraft] = useDraft(entered ? String(entered) : '')
+  const delta = prDelta(lifterId, lift)
 
   return (
-    <div className="flex items-center gap-3 p-3">
+    <div className="flex items-center gap-3 border-b border-rule-soft py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-ink-900">{PR_LABEL[prKey]}</span>
-          {!resolved.entered && (
-            <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700">
-              Estimated
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="text-[13.5px] font-600 text-ink">{PR_LABEL[lift]}</span>
+          {!resolved.entered && <span className="text-[11px] font-medium text-warn">Estimated</span>}
+          {delta != null && delta !== 0 && (
+            <span className={`mono text-[11.5px] font-semibold ${delta > 0 ? 'text-good' : 'text-ink-3'}`}>
+              {delta > 0 ? '+' : ''}
+              {delta} {lifter.unit}
             </span>
           )}
         </div>
-        <p className="mt-0.5 text-[11px] leading-snug text-ink-400">{PR_HINT[prKey]}</p>
+        <p className="t-meta mt-0.5 text-[11.5px]">{PR_HINT[lift]}</p>
       </div>
-      <div className="relative shrink-0">
-        <input
-          inputMode="decimal"
-          value={draft}
-          placeholder={String(Math.round(resolved.value))}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={(e) => {
-            const n = Number.parseFloat(e.target.value)
-            setPR(profileId, prKey, Number.isFinite(n) && n > 0 ? n : undefined)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-          }}
-          aria-label={`${PR_LABEL[prKey]} one rep max`}
-          className={`num focus-ring w-[100px] rounded-lg border border-line bg-white py-1.5 pl-2.5 pr-8 text-right text-sm font-semibold ${
-            resolved.entered ? 'text-ink-900' : 'text-ink-400 placeholder:text-ink-300'
-          }`}
-        />
-        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-medium text-ink-400">
-          {profile.unit}
-        </span>
-      </div>
+      <NumberInput
+        className="w-[104px] shrink-0"
+        ariaLabel={`${PR_LABEL[lift]} one rep max`}
+        value={draft}
+        placeholder={String(Math.round(resolved.value))}
+        suffix={lifter.unit}
+        onChange={setDraft}
+        onCommit={(v) => {
+          const n = Number.parseFloat(v)
+          setPR(lifterId, lift, Number.isFinite(n) && n > 0 ? n : undefined)
+        }}
+      />
     </div>
   )
 }
 
 function OneRepCalculator() {
-  const { profile, setPR } = useStore()
+  const { lifter, setPR } = useStore()
   const [lift, setLift] = useState<PRKey>('bench')
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('5')
@@ -81,453 +94,375 @@ function OneRepCalculator() {
   const r = Number.parseInt(reps, 10)
   const est = estimate1RM(Number.isFinite(w) ? w : 0, Number.isFinite(r) ? r : 0)
 
-  const field =
-    'focus-ring mt-1.5 w-full rounded-lg border border-line bg-white px-2.5 py-2 text-sm font-semibold text-ink-900'
-
   return (
-    <div className="card p-4">
-      <h3 className="text-sm font-semibold text-ink-900">Do not know your 1-rep max?</h3>
-      <p className="mt-1 text-xs leading-relaxed text-ink-500">
-        You do not need to test a true max — that is risky and unnecessary. Take a set you know you
-        can do, put it in here, and use the estimate.
+    <div className="panel p-4">
+      <h3 className="t-item">Estimate a max</h3>
+      <p className="t-meta mt-0.5">
+        From a set you have actually done. Most accurate at 3–8 reps.
       </p>
-
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <label className="block">
-          <span className="label">Lift</span>
-          <select value={lift} onChange={(e) => setLift(e.target.value as PRKey)} className={field}>
-            {(Object.keys(PR_LABEL) as PRKey[]).map((k) => (
-              <option key={k} value={k}>
-                {PR_LABEL[k]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="label">Weight ({profile.unit})</span>
-          <input
-            inputMode="decimal"
-            value={weight}
-            placeholder="185"
-            onChange={(e) => setWeight(e.target.value)}
-            className={`num ${field}`}
-          />
-        </label>
-        <label className="block">
-          <span className="label">Reps</span>
-          <input
-            inputMode="numeric"
-            value={reps}
-            placeholder="5"
-            onChange={(e) => setReps(e.target.value)}
-            className={`num ${field}`}
-          />
-        </label>
+      <div className="mt-3.5 grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <Field label="Lift">
+          {(id) => (
+            <Select id={id} value={lift} onChange={(v) => setLift(v as PRKey)}>
+              {PR_KEYS.map((k) => (
+                <option key={k} value={k}>
+                  {PR_LABEL[k]}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field label={`Weight (${lifter.unit})`}>
+          {(id) => <NumberInput id={id} value={weight} placeholder="185" onChange={setWeight} />}
+        </Field>
+        <Field label="Reps">
+          {(id) => <NumberInput id={id} value={reps} placeholder="5" onChange={setReps} />}
+        </Field>
       </div>
-
-      <div className="panel mt-3.5 flex flex-wrap items-center gap-3 p-3.5">
+      <div className="mt-3.5 flex flex-wrap items-end justify-between gap-3 border-t border-rule pt-3.5">
         <div>
-          <div className="label">Estimated 1RM</div>
-          <div className="num text-2xl font-semibold leading-tight" style={{ color: 'var(--accent)' }}>
-            {est || '—'} {est ? <span className="text-sm text-ink-400">{profile.unit}</span> : null}
+          <span className="t-label">Estimated 1RM</span>
+          <div className="mono mt-1 text-[24px] font-600 leading-none text-ink">
+            {est || '—'}
+            {est ? <span className="ml-1 text-[13px] font-medium text-ink-3">{lifter.unit}</span> : null}
           </div>
         </div>
-        <Button variant="accent" className="ml-auto" disabled={!est} onClick={() => setPR(profile.id, lift, est)}>
-          Save as {PR_LABEL[lift]} PR
+        <Button variant="primary" disabled={!est} onClick={() => setPR(lifter.id, lift, est)}>
+          Save as {PR_LABEL[lift]}
         </Button>
       </div>
-      <p className="mt-2 text-[11px] text-ink-400">
-        Most accurate between 3 and 8 reps. Above 10 it starts to overestimate.
-      </p>
+    </div>
+  )
+}
+
+function ColorPicker({
+  value,
+  onChange,
+}: {
+  value: AccentKey
+  onChange: (k: AccentKey) => void
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {(Object.keys(ACCENTS) as AccentKey[]).map((k) => {
+        const active = value === k
+        return (
+          <button
+            key={k}
+            onClick={() => onChange(k)}
+            title={ACCENTS[k].name}
+            aria-label={ACCENTS[k].name}
+            aria-pressed={active}
+            className={`focus-ring grid size-6 place-items-center rounded-full transition-transform duration-[--t-fast] ${
+              active ? 'ring-2 ring-ink ring-offset-2 ring-offset-surface' : 'hover:scale-110'
+            }`}
+            style={{ background: ACCENTS[k].base }}
+          />
+        )
+      })}
     </div>
   )
 }
 
 function AddLifter() {
-  const { addProfile, profiles } = useStore()
+  const { addLifter, lifters } = useStore()
+  const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
-  const used = new Set(profiles.map((p) => p.accent))
+  const used = new Set(lifters.map((l) => l.accent))
   const free = (Object.keys(ACCENTS) as AccentKey[]).find((k) => !used.has(k)) ?? 'volt'
   const [accent, setAccent] = useState<AccentKey>(free)
 
   const submit = () => {
     if (!name.trim()) return
-    addProfile(name, accent)
+    addLifter(name, accent)
     setName('')
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <Button onClick={() => setOpen(true)}>
+        <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M8 3.5v9M3.5 8h9" />
+        </svg>
+        Add lifter
+      </Button>
+    )
   }
 
   return (
-    <div className="card p-4">
-      <h3 className="text-sm font-semibold text-ink-900">Add a lifter</h3>
-      <p className="mt-1 text-xs text-ink-500">
-        Everyone gets their own PRs, bodyweight, goal and colour.
-      </p>
-      <div className="mt-3.5 flex flex-wrap items-end gap-3">
-        <label className="min-w-[170px] flex-1">
-          <span className="label">Name</span>
-          <input
+    <div className="panel flex flex-wrap items-end gap-3 p-3.5">
+      <Field label="Name" className="min-w-[160px] flex-1">
+        {(id) => (
+          <TextInput
+            id={id}
             value={name}
-            placeholder="Who's lifting?"
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            className="focus-ring mt-1.5 w-full rounded-lg border border-line bg-white px-2.5 py-2 text-sm font-semibold text-ink-900"
+            placeholder="Name"
+            onChange={setName}
+            onCommit={() => undefined}
           />
-        </label>
-        <div>
-          <span className="label">Colour</span>
-          <div className="mt-1.5 flex gap-1.5">
-            {(Object.keys(ACCENTS) as AccentKey[]).map((k) => (
-              <button
-                key={k}
-                onClick={() => setAccent(k)}
-                title={ACCENTS[k].name}
-                aria-label={ACCENTS[k].name}
-                className={`focus-ring size-7 rounded-md border-2 transition-transform ${
-                  accent === k ? 'border-ink-900' : 'border-transparent'
-                }`}
-                style={{ background: ACCENTS[k].base }}
-              />
-            ))}
-          </div>
+        )}
+      </Field>
+      <div>
+        <span className="t-label mb-1.5 block">Colour</span>
+        <div className="flex h-9 items-center">
+          <ColorPicker value={accent} onChange={setAccent} />
         </div>
-        <Button variant="accent" disabled={!name.trim()} onClick={submit}>
-          Add lifter
+      </div>
+      <div className="flex gap-2">
+        <Button variant="primary" disabled={!name.trim()} onClick={submit}>
+          Add
+        </Button>
+        <Button variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
         </Button>
       </div>
     </div>
   )
 }
 
-function DataPanel() {
-  const { exportJSON, importJSON, cloudEnabled, sync, syncError, refresh } = useStore()
-  const [msg, setMsg] = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const flash = (m: string) => {
-    setMsg(m)
-    setTimeout(() => setMsg(''), 3000)
-  }
-
+function LifterCard({ l, active, onSelect }: { l: Lifter; active: boolean; onSelect: () => void }) {
+  const a = ACCENTS[l.accent] ?? ACCENTS.ember
   return (
-    <div className="card p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-ink-900">Where your data lives</h3>
-        {cloudEnabled ? (
-          <Pill tone={sync === 'synced' ? 'good' : sync === 'offline' ? 'warn' : 'muted'}>
-            {sync === 'synced'
-              ? 'Shared database'
-              : sync === 'offline'
-                ? 'Offline — saved locally'
-                : 'Connecting…'}
-          </Pill>
-        ) : (
-          <Pill tone="warn">This device only</Pill>
-        )}
+    <button
+      onClick={onSelect}
+      aria-pressed={active}
+      className={`focus-ring relative overflow-hidden rounded-[--radius-lg] border p-4 text-left transition-colors duration-[--t-fast] ${
+        active ? 'border-rule-strong bg-surface' : 'border-rule bg-surface hover:bg-sunken'
+      }`}
+    >
+      {/* Thin coloured edge instead of an ACTIVE badge */}
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-[3px] transition-opacity duration-[--t-fast]"
+        style={{ background: a.base, opacity: active ? 1 : 0.22 }}
+      />
+      <div className="flex items-baseline justify-between gap-3 pl-1.5">
+        <h3 className="t-item text-[15px]">{l.name}</h3>
+        <span className="t-meta">{l.goal === 'bulk' ? 'Bulking' : 'Cutting'}</span>
       </div>
-
-      <p className="mt-1.5 text-xs leading-relaxed text-ink-500">
-        {cloudEnabled ? (
-          <>
-            Lifters, PRs and completed sets save to a shared Supabase database, so Steven&apos;s
-            phone and Zach&apos;s laptop see the same numbers. If the connection drops, everything
-            keeps working from this browser and syncs when it comes back.
-          </>
-        ) : (
-          <>
-            No database is connected yet, so everything saves to this browser only — your PRs will
-            not show up on another phone. Follow <span className="font-medium text-ink-700">supabase/schema.sql</span>{' '}
-            and paste your project URL and anon key into{' '}
-            <span className="font-medium text-ink-700">src/lib/cloud-config.ts</span> to turn on
-            sharing.
-          </>
-        )}
-      </p>
-
-      {syncError && (
-        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-800">
-          {syncError}
-        </p>
-      )}
-
-      <div className="mt-3.5 flex flex-wrap gap-2">
-        {cloudEnabled && (
-          <Button size="sm" onClick={refresh}>
-            Refresh from database
-          </Button>
-        )}
-        <Button
-          size="sm"
-          onClick={() => {
-            const blob = new Blob([exportJSON()], { type: 'application/json' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `iron-lifters-${new Date().toISOString().slice(0, 10)}.json`
-            a.click()
-            URL.revokeObjectURL(url)
-            flash('Downloaded.')
-          }}
-        >
-          Download backup
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
-          Load a backup
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden"
-          onChange={async (e) => {
-            const file = e.target.files?.[0]
-            if (!file) return
-            const text = await file.text()
-            flash(importJSON(text) ? 'Loaded.' : 'That file did not look right.')
-            e.target.value = ''
-          }}
-        />
-        {msg && <span className="self-center text-xs font-medium text-ink-500">{msg}</span>}
+      <div className="mono mt-0.5 pl-1.5 text-[12.5px] text-ink-3">
+        {l.bodyweight} {l.unit} · week {l.trainingWeek}
       </div>
-    </div>
+      <dl className="mt-3 flex gap-5 pl-1.5">
+        {HEADLINE.map((k) => (
+          <div key={k}>
+            <dt className="t-label">{k === 'deadlift' ? 'Pull' : k === 'bench' ? 'Bench' : 'Squat'}</dt>
+            <dd className="mono mt-0.5 text-[14px] font-600 text-ink">
+              {Math.round(resolvePR(l, k).value)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </button>
   )
 }
 
 export default function Lifters() {
-  const { profile, profiles, setActive, updateProfile, removeProfile } = useStore()
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const targets = targetsFor(profile)
-  const bench = resolvePR(profile, 'bench')
-  const [nameDraft, setNameDraft] = useState(profile.name)
-  const [bwDraft, setBwDraft] = useState(String(profile.bodyweight))
+  const { lifter, lifters, setActive, updateLifter, removeLifter, bodyweightHistory } = useStore()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [name, setName] = useDraft(lifter.name)
+  const [bw, setBw] = useDraft(String(lifter.bodyweight))
 
-  useEffect(() => {
-    setNameDraft(profile.name)
-    setBwDraft(String(profile.bodyweight))
-  }, [profile.id, profile.name, profile.bodyweight])
-
-  const tested = (Object.keys(PR_LABEL) as PRKey[]).filter((k) => profile.prs[k]).length
-  const field =
-    'focus-ring mt-1.5 w-full rounded-lg border border-line bg-white px-2.5 py-2 text-sm font-semibold text-ink-900'
+  const targets = targetsFor(lifter)
+  const history = bodyweightHistory(lifter.id)
+  const first = history[0]
+  const latest = history[history.length - 1]
+  const change = first && latest && history.length > 1 ? latest.weight - first.weight : null
+  const tested = PR_KEYS.filter((k) => lifter.prs[k]).length
 
   return (
     <div className="enter">
-      <section className="mb-7">
-        <Pill tone="accent">User management</Pill>
-        <h1 className="h-display mt-2 text-3xl text-ink-900 sm:text-4xl">Lifters</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-500">
-          Every weight on the workout pages is a percentage of the PRs below. Anything you leave
-          blank is estimated from the lifts you did fill in.
-        </p>
-      </section>
-
-      <section className="mb-6">
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {profiles.map((p) => {
-            const a = ACCENTS[p.accent] ?? ACCENTS.ember
-            const active = p.id === profile.id
-            return (
-              <button
-                key={p.id}
-                onClick={() => setActive(p.id)}
-                className="card focus-ring p-4 text-left transition-colors"
-                style={active ? { borderColor: a.base, background: a.soft } : undefined}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className="grid size-9 place-items-center rounded-lg text-sm font-bold text-white"
-                    style={{ background: a.base }}
-                  >
-                    {p.name.slice(0, 1).toUpperCase()}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-ink-900">{p.name}</div>
-                    <div className="text-[11px] text-ink-500">
-                      {p.goal === 'bulk' ? 'Bulking' : 'Cutting'} · {p.bodyweight} {p.unit}
-                    </div>
-                  </div>
-                  {active && (
-                    <span
-                      className="ml-auto text-[10px] font-semibold uppercase tracking-wide"
-                      style={{ color: a.base }}
-                    >
-                      Active
-                    </span>
-                  )}
-                </div>
-                <div className="num mt-3 flex gap-3 text-[11px] text-ink-500">
-                  {(['bench', 'squat', 'deadlift'] as PRKey[]).map((k) => (
-                    <span key={k}>
-                      {k === 'deadlift' ? 'Pull' : k === 'bench' ? 'Bench' : 'Squat'}{' '}
-                      <span className="font-semibold text-ink-700">
-                        {Math.round(resolvePR(p, k).value)}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              </button>
-            )
-          })}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div>
+          <h1 className="t-page">Lifters</h1>
+          <p className="t-body mt-1.5 max-w-lg">
+            Every load in the program is a percentage of these numbers. Blanks are estimated from the
+            lifts you have filled in.
+          </p>
         </div>
-      </section>
-
-      <section className="mb-6">
         <AddLifter />
+      </div>
+
+      <section className="mt-6 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {lifters.map((l) => (
+          <LifterCard key={l.id} l={l} active={l.id === lifter.id} onSelect={() => setActive(l.id)} />
+        ))}
       </section>
 
-      <section className="mb-9">
-        <SectionTitle
-          kicker="Editing"
-          title={`${profile.name}'s profile`}
-          sub="Bodyweight drives your calorie and protein targets, and the pull-up loading."
-        />
+      {/* Profile */}
+      <section className="mt-9">
+        <h2 className="t-section border-b border-rule pb-2">{lifter.name}&apos;s profile</h2>
 
-        <div className="card p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="label">Name</span>
-              <input
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                onBlur={() => updateProfile(profile.id, { name: nameDraft.trim() || profile.name })}
-                className={field}
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <Field label="Name">
+              {(id) => (
+                <TextInput
+                  id={id}
+                  value={name}
+                  onChange={setName}
+                  onCommit={(v) => updateLifter(lifter.id, { name: v.trim() || lifter.name })}
+                />
+              )}
+            </Field>
+            <Field label={`Bodyweight (${lifter.unit})`} hint="Drives calorie and protein targets.">
+              {(id) => (
+                <NumberInput
+                  id={id}
+                  value={bw}
+                  suffix={lifter.unit}
+                  onChange={setBw}
+                  onCommit={(v) => {
+                    const n = Number.parseFloat(v)
+                    if (Number.isFinite(n) && n > 0) updateLifter(lifter.id, { bodyweight: n })
+                    else setBw(String(lifter.bodyweight))
+                  }}
+                />
+              )}
+            </Field>
+
+            <div>
+              <span className="t-label mb-1.5 block">Goal</span>
+              <Segmented
+                ariaLabel="Goal"
+                value={lifter.goal}
+                onChange={(goal) => updateLifter(lifter.id, { goal })}
+                options={[
+                  { value: 'bulk', label: 'Bulk' },
+                  { value: 'cut', label: 'Cut' },
+                ]}
               />
-            </label>
-            <label className="block">
-              <span className="label">Bodyweight ({profile.unit})</span>
-              <input
-                inputMode="decimal"
-                value={bwDraft}
-                onChange={(e) => setBwDraft(e.target.value)}
-                onBlur={() => {
-                  const n = Number.parseFloat(bwDraft)
-                  if (Number.isFinite(n) && n > 0) updateProfile(profile.id, { bodyweight: n })
-                  else setBwDraft(String(profile.bodyweight))
-                }}
-                className={`num ${field}`}
+            </div>
+            <div>
+              <span className="t-label mb-1.5 block">Units</span>
+              <Segmented
+                ariaLabel="Units"
+                value={lifter.unit}
+                onChange={(unit) => updateLifter(lifter.id, { unit })}
+                options={[
+                  { value: 'lb', label: 'lb' },
+                  { value: 'kg', label: 'kg' },
+                ]}
               />
-            </label>
+            </div>
+
+            <div className="sm:col-span-2">
+              <span className="t-label mb-1.5 block">Colour</span>
+              <ColorPicker value={lifter.accent} onChange={(accent) => updateLifter(lifter.id, { accent })} />
+            </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-end gap-5">
-            <div>
-              <span className="label">Goal</span>
-              <div className="mt-1.5">
-                <Segmented
-                  value={profile.goal}
-                  onChange={(goal) => updateProfile(profile.id, { goal })}
-                  options={[
-                    { value: 'bulk', label: 'Bulk' },
-                    { value: 'cut', label: 'Cut' },
-                  ]}
-                />
-              </div>
-            </div>
-            <div>
-              <span className="label">Units</span>
-              <div className="mt-1.5">
-                <Segmented
-                  value={profile.unit}
-                  onChange={(unit) => updateProfile(profile.id, { unit })}
-                  options={[
-                    { value: 'lb', label: 'lb' },
-                    { value: 'kg', label: 'kg' },
-                  ]}
-                />
-              </div>
-            </div>
-            <div>
-              <span className="label">Colour</span>
-              <div className="mt-1.5 flex gap-1.5">
-                {(Object.keys(ACCENTS) as AccentKey[]).map((k) => (
-                  <button
-                    key={k}
-                    onClick={() => updateProfile(profile.id, { accent: k })}
-                    title={ACCENTS[k].name}
-                    aria-label={ACCENTS[k].name}
-                    className={`focus-ring size-7 rounded-md border-2 ${
-                      profile.accent === k ? 'border-ink-900' : 'border-transparent'
-                    }`}
-                    style={{ background: ACCENTS[k].base }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {profiles.length > 1 && (
-              <div className="ml-auto">
-                {confirmDelete === profile.id ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-ink-500">Delete {profile.name}?</span>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => {
-                        removeProfile(profile.id)
-                        setConfirmDelete(null)
-                      }}
-                    >
-                      Yes, delete
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setConfirmDelete(null)}>
-                      Cancel
-                    </Button>
-                  </div>
+          {/* Bodyweight + targets */}
+          <div className="panel p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="t-label">Bodyweight</span>
+                <div className="mono mt-1 text-[26px] font-600 leading-none text-ink">
+                  {lifter.bodyweight}
+                  <span className="ml-1 text-[13px] font-medium text-ink-3">{lifter.unit}</span>
+                </div>
+                {change != null && change !== 0 ? (
+                  <p className="mono mt-1.5 text-[12px] text-ink-3">
+                    <span className={change > 0 ? 'text-good' : 'text-ink-2'}>
+                      {change > 0 ? '+' : ''}
+                      {Math.round(change * 10) / 10} {lifter.unit}
+                    </span>{' '}
+                    since {first.loggedOn}
+                  </p>
                 ) : (
-                  <Button size="sm" variant="danger" onClick={() => setConfirmDelete(profile.id)}>
-                    Delete lifter
-                  </Button>
+                  <p className="t-meta mt-1.5">
+                    {history.length > 1 ? 'No change yet.' : 'History builds as you update it.'}
+                  </p>
                 )}
               </div>
-            )}
+              <Sparkline entries={history} />
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-3 border-t border-rule pt-3.5">
+              <div>
+                <div className="mono text-[15px] font-600 leading-none text-ink">
+                  {targets.kcal.toLocaleString()}
+                </div>
+                <div className="t-label mt-1">kcal</div>
+              </div>
+              <div>
+                <div className="mono text-[15px] font-600 leading-none text-ink">{targets.protein}g</div>
+                <div className="t-label mt-1">Protein</div>
+              </div>
+              <div>
+                <div className="mono text-[15px] font-600 leading-none text-ink">
+                  {tested}/{PR_KEYS.length}
+                </div>
+                <div className="t-label mt-1">Lifts tested</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-          <Stat
-            label="Daily calories"
-            value={targets.kcal.toLocaleString()}
-            sub={profile.goal === 'bulk' ? 'Bulking' : 'Cutting'}
-            accent
-          />
-          <Stat label="Daily protein" value={`${targets.protein}g`} />
-          <Stat
-            label="Bench 1RM"
-            value={String(Math.round(bench.value))}
-            sub={bench.entered ? 'Tested' : 'Estimated'}
-          />
-          <Stat label="Lifts tested" value={`${tested} / 13`} sub="The rest are calculated" />
-        </div>
+        {lifters.length > 1 && (
+          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-rule pt-4">
+            {confirmDelete ? (
+              <>
+                <span className="t-meta">
+                  Delete {lifter.name}? Their PRs, bodyweight history and logged sets go too.
+                </span>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => {
+                    removeLifter(lifter.id)
+                    setConfirmDelete(false)
+                  }}
+                >
+                  Delete permanently
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="focus-ring rounded-[--radius-sm] text-[12.5px] font-medium text-ink-3 underline decoration-rule-strong underline-offset-2 transition-colors duration-[--t-fast] hover:text-bad"
+              >
+                Delete {lifter.name}
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
-      <section className="mb-9">
-        <SectionTitle
-          kicker="The engine"
-          title="Personal records"
-          sub="One-rep maxes. Fill in what you know; blanks get estimated and are tagged as such."
-        />
-        <div className="space-y-3">
+      {/* PRs */}
+      <section className="mt-9">
+        <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-2">
+          <h2 className="t-section">Personal records</h2>
+          <span className="t-meta">One-rep maxes. Saved as you type.</span>
+        </div>
+        <div className="mt-1 grid gap-x-10 lg:grid-cols-2">
           {PR_GROUPS.map((g) => (
-            <div key={g.title} className="card overflow-hidden">
-              <div className="border-b border-line bg-paper px-4 py-2.5">
-                <h3 className="text-sm font-semibold text-ink-900">{g.title}</h3>
-                <p className="mt-0.5 text-[11px] text-ink-400">{g.note}</p>
-              </div>
-              <div className="divide-y divide-line">
-                {g.keys.map((k) => (
-                  <PRRow key={k} prKey={k} profileId={profile.id} />
-                ))}
-              </div>
+            <div key={g.title} className="mt-4">
+              <h3 className="t-label mb-1">{g.title}</h3>
+              {g.keys.map((k) => (
+                <PRField key={k} lifterId={lifter.id} lift={k} />
+              ))}
             </div>
           ))}
         </div>
       </section>
 
-      <section className="mb-6">
+      <section className="mt-8">
         <OneRepCalculator />
       </section>
 
-      <section>
-        <DataPanel />
+      <section className="mt-8 border-t border-rule pt-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tag tone="good">Saved to the database</Tag>
+          <p className="t-meta">
+            Lifters, PRs, bodyweight history and logged sets live in Postgres — the same numbers load
+            on any phone or laptop.
+          </p>
+        </div>
       </section>
     </div>
   )

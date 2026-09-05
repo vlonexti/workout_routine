@@ -1,5 +1,6 @@
 export type Unit = 'lb' | 'kg'
 export type Goal = 'bulk' | 'cut'
+export type WednesdayVariant = 'legs' | 'arms'
 
 /** Every lift we track a personal record for. Everything else is a % of one of these. */
 export type PRKey =
@@ -17,19 +18,86 @@ export type PRKey =
   | 'pullup'
   | 'curl'
 
-export interface Profile {
+export const PR_KEYS: PRKey[] = [
+  'bench',
+  'inclineBench',
+  'cgbp',
+  'ohp',
+  'dbBench',
+  'squat',
+  'deadlift',
+  'rdl',
+  'row',
+  'dbRow',
+  'pulldown',
+  'pullup',
+  'curl',
+]
+
+export type AccentKey = 'ember' | 'ice' | 'volt' | 'violet' | 'lime' | 'rose'
+
+/** Nutrition targets a lifter has deliberately pinned. Null means "calculate it". */
+export interface TargetOverrides {
+  kcal: number | null
+  protein: number | null
+  carbs: number | null
+  fat: number | null
+}
+
+/**
+ * One athlete. `prs` is derived on read from the newest pr_entries row per
+ * lift, so the shape stays exactly what calc.ts already expects.
+ */
+export interface Lifter {
   id: string
   name: string
   unit: Unit
   bodyweight: number
   goal: Goal
-  /** Only the PRs the lifter actually entered. Missing ones get derived. */
   prs: Partial<Record<PRKey, number>>
   accent: AccentKey
+  trainingWeek: number
+  wednesday: WednesdayVariant
+  targets: TargetOverrides
+  sortOrder: number
   createdAt: number
 }
 
-export type AccentKey = 'ember' | 'volt' | 'ice' | 'violet' | 'lime' | 'rose'
+/** calc.ts is written against this name; keep it working untouched. */
+export type Profile = Lifter
+
+export interface PREntry {
+  id: string
+  lifterId: string
+  lift: PRKey
+  value: number
+  unit: Unit
+  recordedAt: number
+}
+
+export interface BodyweightEntry {
+  id: string
+  lifterId: string
+  weight: number
+  unit: Unit
+  loggedOn: string
+}
+
+export interface SetLog {
+  id: string
+  lifterId: string
+  performedOn: string
+  dayKey: string
+  exerciseId: string
+  setIndex: number
+  weight: number | null
+  reps: number | null
+  trainingWeek: number | null
+}
+
+/* ------------------------------------------------------------------ */
+/*  Program                                                            */
+/* ------------------------------------------------------------------ */
 
 export type Equip =
   | 'Barbell'
@@ -66,7 +134,6 @@ export interface Exercise {
   tag: Tag
   /** Shown instead of a calculated number when there is no sane PR mapping. */
   loadNote?: string
-  supersetWith?: string
 }
 
 export interface WarmupItem {
@@ -82,13 +149,16 @@ export interface Day {
   title: string
   focus: string
   blurb: string
-  hue: string
   rest?: boolean
   alt?: string
   warmup: WarmupItem[]
   exercises: Exercise[]
   finisher: string[]
 }
+
+/* ------------------------------------------------------------------ */
+/*  Nutrition                                                          */
+/* ------------------------------------------------------------------ */
 
 export interface Food {
   id: string

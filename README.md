@@ -1,45 +1,62 @@
 # IRON
 
-A five-day strength and hypertrophy program for Steven and Zach, plus the food that makes it work.
+A five-day strength program and training log for Steven and Zach, plus the food that goes with it.
 
 Live at **[justloofy.dev](https://justloofy.dev)**.
 
 ## What it does
 
-- **Workouts** — Mon chest (heavy), Tue back (heavy), Wed legs *or* arms, Thu chest (volume), Fri back (volume) + arms. Weekends off. Every session is programmed to land around 2h 20m including rest and talking.
-- **Every weight is a percentage of your PRs.** Enter one bench number and the whole program fills in; anything you leave blank is estimated from the lifts you did enter and flagged as such.
-- **A 4-week wave.** Weeks 1–3 climb, week 4 deloads. The week selector rescales every number on the page.
-- **Bulk and Cut** — calorie and protein targets from your bodyweight, a full day of meals with macros and recipes, a grocery list, and an honest read on supplements.
-- **Lifters** — add people, edit PRs, estimate a 1RM from a set you've actually done.
+- **Workouts** — Mon chest (heavy), Tue back (heavy), Wed legs *or* arms, Thu chest (volume), Fri back + arms. Weekends off. Sessions are programmed to land around 2h 20m including rest.
+- **Percentage-based loading.** Every working weight is a share of that lifter's one-rep max. Enter a bench number and the whole program fills in; blanks are derived from the lifts you did enter and flagged as estimated.
+- **A four-week wave.** Weeks 1–3 climb, week 4 deloads. The multiplier scales main lifts and light accessories alike.
+- **Set logging.** Tap a set number to record it with the target weight and reps. Sessions build history, which is where the "last session" line on each exercise comes from.
+- **Bulk and Cut** — calorie and protein targets computed from bodyweight and goal, a full day of meals with macros and recipes, a grocery list and a supplement rundown.
+- **Lifters** — per-athlete PRs with change-over-time, bodyweight history, goal, units and colour.
 
-## Connecting the database
+Everything is per lifter, including the training week. Steven can be in week 3 while Zach is in week 1.
 
-Out of the box the site saves to the browser it's open in. To have everyone share one set of lifters, PRs and completed sets:
+## Where the data lives
+
+Postgres, via Supabase. Open the site on a different phone, laptop or browser and the same numbers load.
+
+The **only** thing kept on the device is `iron.activeLifter` — which profile this browser had open last. It is a convenience, not data; clear it and nothing is lost.
+
+### Connecting it
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. In the Supabase dashboard open **SQL Editor → New query**, paste the whole of [`supabase/schema.sql`](supabase/schema.sql), and run it. It creates the three tables, the access policies, and seeds Steven and Zach.
-3. Go to **Project Settings → API** and copy the **Project URL** and the **anon public** key.
-4. Paste both into the top of [`src/lib/cloud-config.ts`](src/lib/cloud-config.ts).
-5. Commit and push. The site redeploys and the dot in the header turns green.
+2. **SQL Editor → New query**, paste all of [`supabase/schema.sql`](supabase/schema.sql), Run. It is idempotent, so it is safe to run again after changes.
+3. **Project Settings → API** — copy the **Project URL** and the **anon public** key.
+4. Paste both into the top of [`src/lib/supabase-config.ts`](src/lib/supabase-config.ts), commit and push.
 
-The header shows the connection state at all times: grey "This device only", amber "Syncing…", green "Saved for everyone", red if it can't reach the database. Writes are optimistic — if the connection drops mid-session you keep training against the local copy, and the next successful write or refresh brings it back in line.
+Until that is done the app shows a setup screen rather than pretending to work. There is no local-only mode by design.
 
-### About the security tradeoff
+For local development you can use a `.env.local` instead of editing the config file:
 
-There's no login, which is what you asked for, so the site talks to Supabase as the anonymous role. The row-level security policies in `schema.sql` therefore allow anyone who has the URL to read and write. That's fine for a few friends. It does mean that if the link spreads, someone could edit or delete your PRs.
+```
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+```
 
-The anon key itself being public is normal and not the issue — it ships in every Supabase web app. The permissive policy is the thing to change if it ever matters. Two options, in order of effort: gate writes on a shared secret passed as a header, or turn on Supabase Auth with a magic link. Say the word and I'll wire either one up.
+### Migration from the old device-only version
+
+Anything saved in the browser before the database existed (`iron.v1` / `iron.v2`) is imported automatically the first time IRON connects to an **empty** project — lifters, PRs and bodyweight. It only runs against an empty database, so it can never overwrite real rows, and it marks itself done afterwards.
+
+`supabase/schema.sql` separately migrates the earlier `profiles` + `app_settings` tables into the normalised layout, leaving the old tables in place rather than dropping them.
+
+### Security tradeoff
+
+There is no login, so the browser talks to Postgres as the anonymous role and the RLS policies allow anyone with the URL to read and write. Fine for a few friends; not fine if the link spreads, because someone could wipe the history. The anon key being public is normal — it ships in every Supabase web app. The permissive policy is the thing to change: gate writes on a shared secret, or turn on Supabase Auth.
 
 ## Data model
 
-| Table | What's in it |
+| Table | Contents |
 | --- | --- |
-| `profiles` | One row per lifter: name, bodyweight, unit, goal, colour, and PRs as JSON. |
-| `app_settings` | One row, `shared` — the current training week and whether Wednesday is legs or arms. |
+| `lifters` | One row per athlete: name, bodyweight, unit, goal, colour, training week, Wednesday variant, optional nutrition target overrides. |
+| `pr_entries` | Append-only. Newest row per lift is the current PR; the older rows are what make the `+10 lb` change honest. |
+| `bodyweight_entries` | One weigh-in per lifter per day, unique on `(lifter_id, logged_on)`. Drives the trend line. |
+| `set_logs` | One row per completed set with weight, reps and training week. Unique on `(lifter_id, performed_on, day_key, exercise_id, set_index)`. |
 
-Which lifter is selected is deliberately **not** synced — that's per-device, so Steven's phone and Zach's phone can each stay on their own profile.
-
-The site doesn't track individual sets. Rest times are printed on each exercise and that's it; there are no checkboxes and no countdown to babysit.
+Everything cascades from `lifters` on delete. Writes are optimistic: the UI moves first, and if Postgres rejects the change the previous state is restored and the header says **Not saved** rather than silently losing it.
 
 ## Running it locally
 
@@ -48,8 +65,6 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:5173.
-
 ```bash
 npm run build     # production build into dist/
 npm run preview   # serve the production build
@@ -57,27 +72,29 @@ npm run preview   # serve the production build
 
 ## Deploying
 
-Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds the site and publishes it to GitHub Pages. `public/CNAME` pins the custom domain to `justloofy.dev`.
+Pushing to `main` runs `.github/workflows/deploy.yml`, which builds and publishes to GitHub Pages. `public/CNAME` pins the custom domain.
 
-**One-time setup:** go to **Settings → Pages** and set **Source** to **GitHub Actions**. This can't be automated — the workflow's built-in token is allowed to manage an existing Pages site but not to create one. Until it's done, the deploy fails at the `configure-pages` step.
+**Settings → Pages → Source must be "GitHub Actions."** Two traps, both of which look identical in the browser (blank page, correct tab title):
 
-Two traps worth knowing, both of which look identical from the browser (a blank white page with the right tab title):
-
-- **Source left on "Deploy from a branch."** GitHub then runs its own `pages build and deployment` job, which copies the repo verbatim — no build step. You end up serving the source `index.html`, whose `<script src="/src/main.tsx">` the browser won't execute, so React never mounts. It also races this workflow and usually lands second, overwriting a perfectly good deploy. Tell them apart by fetching `/README.md`: a 200 means you're getting the raw repo, a 404 means you're getting the build.
-- **Changing the Source doesn't republish.** It only changes what happens on the *next* deploy, so the old output stays live until you push a commit or re-run the workflow.
-
-DNS for `justloofy.dev` already points at the GitHub Pages apex IPs (`185.199.108–111.153`), so nothing needs changing at the registrar.
+- **Source left on "Deploy from a branch."** GitHub then runs its own publisher, which copies the repo verbatim with no build step, and races this workflow. Tell them apart by fetching `/README.md`: a 200 means you are getting the raw repo, a 404 means you are getting the build.
+- **Changing the Source does not republish.** It only affects the next deploy, so push a commit afterwards.
 
 ## Editing the program
 
-Everything is data, not layout:
+The fitness logic is data, not layout:
 
-- [`src/data/program.ts`](src/data/program.ts) — the week. Each exercise has `pr` (which max it loads off), `pct`, `sets`, `reps`, `rest`, plus form cues. Change a `pct` and every lifter's numbers move.
-- [`src/data/nutrition.ts`](src/data/nutrition.ts) — recipes, meal plans, grocery list, supplements.
+- [`src/data/program.ts`](src/data/program.ts) — the week. Each exercise has `pr` (which max it loads off), `pct`, `sets`, `reps`, `rest` and its cues. Change a `pct` and every lifter's numbers move.
+- [`src/data/nutrition.ts`](src/data/nutrition.ts) — recipes, plans, grocery list, supplements.
 - [`src/lib/calc.ts`](src/lib/calc.ts) — PR derivation ratios, the weekly wave, plate math, calorie targets.
 
-Session length is computed, not hardcoded: `sessionMinutes()` adds up warm-up minutes, working sets, rest, and a fixed transition allowance per exercise. Add an exercise and the "Time" stat updates on its own.
+Session length is computed rather than written down: `sessionMinutes()` sums warm-up minutes, working sets, rest and a per-exercise transition allowance. Add an exercise and the duration updates itself.
+
+## Design
+
+Tokens live in [`src/index.css`](src/index.css) — surfaces, text, rules, accent, status colours, radii and timings. Components reference tokens only; there are no loose hex values outside that file. Content is capped at 1120px, radii are 4–8px, and the one soft shadow in the system is on the segmented-control thumb.
+
+Each lifter has a colour, used to identify whose data is on screen — a dot, an initial, a thin edge. It never repaints the page.
 
 ## Stack
 
-React 19, TypeScript, Tailwind CSS 4, Vite. Supabase is reached over plain `fetch` against its REST API rather than the SDK — the whole surface is three tables, which isn't worth 50 kB of client. No router: `base: './'` keeps the build working on the custom domain and on `github.io/workout_routine/` alike.
+React 19, TypeScript, Tailwind CSS 4, Vite. Supabase is reached over its REST API with plain `fetch` rather than the SDK — four tables is not worth 50 kB of client. No router: `base: './'` keeps the build working on the custom domain and on `github.io/workout_routine/` alike.

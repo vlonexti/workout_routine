@@ -12,136 +12,13 @@ import {
   sessionMinutes,
   weekSpec,
 } from '../lib/calc'
-import { Pill, SectionTitle } from './ui'
+import { Button, Chevron, Segmented, Tag } from './ui'
 
-const TAG_STYLE: Record<string, string> = {
-  main: 'border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent)]',
-  secondary: 'border-line bg-paper text-ink-700',
-  accessory: 'border-line bg-paper text-ink-500',
-  finisher: 'border-amber-200 bg-amber-50 text-amber-700',
-  core: 'border-sky-200 bg-sky-50 text-sky-700',
+/** First number in a rep prescription — what we log when a set is ticked. */
+function targetReps(reps: string): number | null {
+  const m = reps.match(/\d+/)
+  return m ? Number.parseInt(m[0], 10) : null
 }
-
-function ExerciseCard({ ex, index, week }: { ex: Exercise; index: number; week: number }) {
-  const { profile } = useStore()
-  const [open, setOpen] = useState(false)
-  const load = computeLoad(profile, ex, week)
-  const sets = exerciseSets(ex, week)
-  const plates =
-    load.pct != null &&
-    !ex.perHand &&
-    !ex.bodyweightBased &&
-    (ex.equip === 'Barbell' || ex.equip === 'EZ Bar')
-      ? plateBreakdown(load.weight, profile.unit)
-      : null
-
-  return (
-    <article className="card overflow-hidden">
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="focus-ring w-full p-4 text-left">
-        <div className="flex items-start gap-3">
-          <span className="num mt-0.5 hidden w-6 shrink-0 text-sm font-medium text-ink-300 sm:block">
-            {index + 1}
-          </span>
-
-          <div className="min-w-0 flex-1">
-            <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-              <span
-                className={`rounded border px-1.5 py-px text-[10px] font-semibold capitalize ${TAG_STYLE[ex.tag]}`}
-              >
-                {ex.tag}
-              </span>
-              <span className="rounded border border-line bg-paper px-1.5 py-px text-[10px] font-medium text-ink-500">
-                {ex.equip}
-              </span>
-              {ex.rpe && <span className="text-[11px] text-ink-400">{ex.rpe}</span>}
-            </div>
-
-            <h3 className="text-[15px] font-semibold leading-tight text-ink-900">{ex.name}</h3>
-
-            <div className="num mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-500">
-              <span className="font-semibold text-ink-700">
-                {sets} × {ex.reps}
-              </span>
-              <span className="text-line-strong">·</span>
-              <span>rest {fmtClock(ex.rest)}</span>
-            </div>
-
-            <span className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-semibold text-ink-400">
-              {open ? 'Hide' : 'How to'}
-              <svg
-                viewBox="0 0 24 24"
-                className={`size-3 transition-transform ${open ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </span>
-          </div>
-
-          {/* The number you put on the bar */}
-          <div className="w-[132px] shrink-0 text-right sm:w-[168px]">
-            <div className="num text-lg font-semibold leading-tight text-ink-900 sm:text-xl">
-              {load.display}
-            </div>
-            {load.basis && (
-              <div className="mt-1 text-[11px] leading-snug text-ink-400">
-                {load.basis}
-                {load.estimated && <span className="text-amber-600"> · estimated</span>}
-              </div>
-            )}
-            {plates && <div className="num mt-0.5 text-[11px] text-ink-300">{plates}</div>}
-            {load.pct == null && ex.loadNote && (
-              <div className="mt-1 text-[11px] leading-snug text-ink-400">{ex.loadNote}</div>
-            )}
-          </div>
-        </div>
-      </button>
-
-      {open && (
-        <div className="space-y-3 border-t border-line bg-paper p-4">
-          <Detail label="Form">{ex.cue}</Detail>
-          {ex.why && <Detail label="Why it's here">{ex.why}</Detail>}
-          {ex.loadNote && load.pct != null && <Detail label="Loading">{ex.loadNote}</Detail>}
-        </div>
-      )}
-    </article>
-  )
-}
-
-function Detail({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-1 sm:grid-cols-[96px_1fr] sm:gap-4">
-      <div className="label">{label}</div>
-      <p className="text-sm leading-relaxed text-ink-700">{children}</p>
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-
-function RestDay({ day }: { day: Day }) {
-  return (
-    <div className="card overflow-hidden">
-      <div className="border-b border-line p-5 sm:p-6">
-        <h2 className="h-display text-2xl text-ink-900">{day.title}</h2>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-500">{day.blurb}</p>
-      </div>
-      <ul className="divide-y divide-line">
-        {day.finisher.map((f, i) => (
-          <li key={i} className="flex gap-3 p-4">
-            <span className="num shrink-0 text-xs font-medium text-ink-300">{i + 1}</span>
-            <span className="text-sm leading-relaxed text-ink-700">{f}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
 
 function todayKey(wednesday: 'legs' | 'arms'): string {
   const map: Record<number, string> = {
@@ -156,9 +33,216 @@ function todayKey(wednesday: 'legs' | 'arms'): string {
   return map[new Date().getDay()] ?? 'mon'
 }
 
+const TAG_LABEL: Record<string, string> = {
+  main: 'Main',
+  secondary: 'Secondary',
+  accessory: 'Accessory',
+  finisher: 'Finisher',
+  core: 'Core',
+}
+
+/* ------------------------------------------------------------------ */
+/*  Exercise row                                                       */
+/* ------------------------------------------------------------------ */
+
+function ExerciseRow({ ex, dayKey, week }: { ex: Exercise; dayKey: string; week: number }) {
+  const { lifter, isSetDone, toggleSet, lastSession } = useStore()
+  const [open, setOpen] = useState(false)
+
+  const load = computeLoad(lifter, ex, week)
+  const sets = exerciseSets(ex, week)
+  const plates =
+    load.pct != null &&
+    !ex.perHand &&
+    !ex.bodyweightBased &&
+    (ex.equip === 'Barbell' || ex.equip === 'EZ Bar')
+      ? plateBreakdown(load.weight, lifter.unit)
+      : null
+
+  const done = Array.from({ length: sets }, (_, i) => isSetDone(dayKey, ex.id, i))
+  const complete = done.every(Boolean)
+  const last = lastSession(ex.id)
+  const reps = targetReps(ex.reps)
+
+  const pctLabel = load.pct != null ? ` @ ${Math.round(load.pct * 100)}%` : ''
+
+  return (
+    <div className={`border-b border-rule-soft transition-opacity duration-[--t-base] ${complete ? 'opacity-55' : ''}`}>
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2.5 py-3.5">
+        {/* Name and prescription */}
+        <div className="min-w-[190px] flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <h3 className="t-item">{ex.name}</h3>
+            <span className="t-label">{TAG_LABEL[ex.tag]}</span>
+          </div>
+          <div className="mono mt-1 text-[12.5px] text-ink-2">
+            {sets} × {ex.reps}
+            {pctLabel}
+            <span className="text-ink-4"> · </span>
+            <span className="text-ink-3">rest {fmtClock(ex.rest)}</span>
+          </div>
+          {last && (
+            <div className="t-meta mt-0.5">
+              Last session:{' '}
+              <span className="mono text-ink-2">
+                {last.weight ?? '—'}
+                {last.weight != null ? ` ${lifter.unit}` : ''}
+                {last.reps != null ? ` × ${last.reps}` : ''}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Target load */}
+        <div className="w-[124px] shrink-0 text-right sm:w-[152px]">
+          <div className="mono text-[16px] font-600 leading-none text-ink">{load.display}</div>
+          {plates && <div className="mono mt-1 text-[11.5px] text-ink-3">{plates}</div>}
+          {load.estimated && <div className="mt-1 text-[11px] text-warn">Estimated PR</div>}
+          {load.pct == null && ex.loadNote && (
+            <div className="mt-1 text-[11.5px] leading-snug text-ink-3">{ex.loadNote}</div>
+          )}
+        </div>
+
+        {/* Set ticks */}
+        <div className="flex w-full items-center gap-1 sm:w-auto">
+          {done.map((isDone, i) => (
+            <button
+              key={i}
+              onClick={() => toggleSet(dayKey, ex.id, i, load.pct != null ? load.weight : null, reps)}
+              aria-label={isDone ? `Undo set ${i + 1}` : `Log set ${i + 1}`}
+              aria-pressed={isDone}
+              title={isDone ? `Set ${i + 1} logged — click to undo` : `Log set ${i + 1}`}
+              className={`focus-ring mono grid size-6 place-items-center rounded-[--radius-sm] border text-[11px] font-semibold transition-colors duration-[--t-fast] ${
+                isDone
+                  ? 'border-accent bg-accent text-white'
+                  : 'border-rule bg-surface text-ink-4 hover:border-rule-strong hover:text-ink-2'
+              }`}
+            >
+              {isDone ? '✓' : i + 1}
+            </button>
+          ))}
+          <button
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="focus-ring ml-auto inline-flex h-6 items-center gap-1 rounded-[--radius-sm] px-1.5 text-[11.5px] font-semibold text-ink-3 transition-colors duration-[--t-fast] hover:bg-sunken hover:text-ink sm:ml-1"
+          >
+            Notes
+            <Chevron open={open} />
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="grid gap-2.5 pb-4 sm:grid-cols-[92px_1fr] sm:gap-x-5">
+          <span className="t-label sm:pt-0.5">Form</span>
+          <p className="t-body">{ex.cue}</p>
+          {ex.why && (
+            <>
+              <span className="t-label sm:pt-0.5">Purpose</span>
+              <p className="t-body">{ex.why}</p>
+            </>
+          )}
+          {ex.loadNote && load.pct != null && (
+            <>
+              <span className="t-label sm:pt-0.5">Loading</span>
+              <p className="t-body">{ex.loadNote}</p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Weekly schedule                                                    */
+/* ------------------------------------------------------------------ */
+
+function Schedule({
+  days,
+  selected,
+  today,
+  onSelect,
+  progressFor,
+}: {
+  days: Day[]
+  selected: string
+  today: string
+  onSelect: (key: string) => void
+  progressFor: (d: Day) => { done: number; total: number }
+}) {
+  return (
+    <div className="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <div className="flex min-w-[640px] overflow-hidden rounded-[--radius-lg] border border-rule bg-surface">
+        {days.map((d, i) => {
+          const active = d.key === selected
+          const isToday = d.key === today
+          const { done, total } = progressFor(d)
+          const complete = total > 0 && done >= total
+          const started = done > 0 && !complete
+
+          return (
+            <button
+              key={d.key}
+              onClick={() => onSelect(d.key)}
+              aria-current={active ? 'true' : undefined}
+              className={`focus-ring relative flex-1 px-3 py-2.5 text-left transition-colors duration-[--t-fast] ${
+                i > 0 ? 'border-l border-rule' : ''
+              } ${active ? 'bg-accent-bg' : 'hover:bg-sunken'}`}
+            >
+              {active && <span className="absolute inset-x-0 top-0 h-[2px] bg-accent" />}
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`t-label ${active ? 'text-accent' : ''}`}
+                  style={active ? undefined : undefined}
+                >
+                  {d.short}
+                </span>
+                {isToday && (
+                  <span
+                    aria-label="Today"
+                    className="size-[5px] rounded-full"
+                    style={{ background: 'var(--lifter)' }}
+                  />
+                )}
+              </div>
+              <div
+                className={`mt-1 text-[12.5px] font-600 leading-tight ${
+                  d.rest ? 'text-ink-4' : active ? 'text-accent' : 'text-ink-2'
+                }`}
+              >
+                {d.title.replace(' — ', ' ')}
+              </div>
+              <div className="mt-1.5 h-[3px]">
+                {complete ? (
+                  <span className="flex items-center gap-1 text-[10.5px] font-semibold text-good">
+                    <svg viewBox="0 0 12 12" className="size-2.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2.5 6.5l2.5 2.5 4.5-5.5" />
+                    </svg>
+                    Done
+                  </span>
+                ) : started ? (
+                  <span className="mono text-[10.5px] font-medium text-ink-3">
+                    {done}/{total}
+                  </span>
+                ) : null}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+
 export default function Workouts() {
-  const { profile, week, setWeek, wednesday, setWednesday } = useStore()
-  const [selected, setSelected] = useState(() => todayKey(wednesday))
+  const { lifter, setTrainingWeek, setWednesday, doneToday, clearDay } = useStore()
+  const week = lifter.trainingWeek
+  const wednesday = lifter.wednesday
+  const today = todayKey(wednesday)
+  const [selected, setSelected] = useState(today)
 
   useEffect(() => {
     setSelected((s) =>
@@ -166,213 +250,191 @@ export default function Workouts() {
     )
   }, [wednesday])
 
-  const rail = useMemo(
+  const days = useMemo(
     () => DAYS.filter((d) => (wednesday === 'arms' ? d.key !== 'wed' : d.key !== 'wed-arms')),
     [wednesday],
   )
   const day = DAYS.find((d) => d.key === selected) ?? DAYS[0]
   const spec = weekSpec(week)
 
-  const minutes = day.rest ? 0 : sessionMinutes(day.warmup, day.exercises, week)
   const totalSets = day.exercises.reduce((a, e) => a + exerciseSets(e, week), 0)
-  const isToday = day.key === todayKey(wednesday)
+  const minutes = day.rest ? 0 : sessionMinutes(day.warmup, day.exercises, week)
+  const done = doneToday(day.key)
+  const warmupMinutes = day.warmup.reduce((a, b) => a + b.minutes, 0)
+
+  const progressFor = (d: Day) => ({
+    done: doneToday(d.key),
+    total: d.exercises.reduce((a, e) => a + exerciseSets(e, week), 0),
+  })
 
   return (
     <div className="enter">
-      <section className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      {/* Page head — week selector lives here rather than floating on the right */}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div>
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <Pill tone="accent">{profile.name}</Pill>
-            <Pill tone="muted">
-              Week {spec.week} · {spec.name}
-            </Pill>
-          </div>
-          <h1 className="h-display text-3xl text-ink-900 sm:text-4xl">Five days a week.</h1>
-          <p className="mt-2 max-w-lg text-sm leading-relaxed text-ink-500">
-            Every weight below is worked out from your PRs. Keep those honest and the program runs
-            itself.
+          <h1 className="t-page">Five days a week.</h1>
+          <p className="t-body mt-1.5 max-w-md">
+            Loads are calculated from {lifter.name}&apos;s PRs. Update the PRs and every number moves.
           </p>
         </div>
-
-        <div>
-          <div className="label mb-1.5">Training week</div>
-          <div className="inline-flex rounded-lg border border-line bg-paper p-0.5">
-            {WEEKS.map((w) => (
-              <button
-                key={w.week}
-                onClick={() => setWeek(w.week)}
-                title={`${w.name} — ${w.note}`}
-                className={`focus-ring num rounded-[0.3125rem] px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                  w.week === spec.week
-                    ? 'bg-white text-ink-900 shadow-[0_1px_2px_rgba(24,24,27,0.06)]'
-                    : 'text-ink-500 hover:text-ink-900'
-                }`}
-              >
-                {w.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-col items-start gap-1.5 sm:items-end">
+          <span className="t-label">Training week</span>
+          <Segmented
+            ariaLabel="Training week"
+            value={String(week)}
+            onChange={(v) => setTrainingWeek(Number(v))}
+            options={WEEKS.map((w) => ({ value: String(w.week), label: w.label }))}
+          />
         </div>
-      </section>
+      </div>
 
-      <div className="card mb-5 flex items-start gap-2.5 p-3.5">
-        <span
-          className="num mt-px shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold"
-          style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-        >
-          {spec.label}
+      {/* Cycle phase */}
+      <div className="mt-5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-y border-rule py-3">
+        <span className="t-item">
+          Week {spec.week} · {spec.name}
         </span>
-        <p className="text-sm leading-relaxed text-ink-700">
-          <span className="font-semibold text-ink-900">{spec.name}.</span> {spec.note}
-        </p>
+        <p className="t-body flex-1 basis-full sm:basis-auto">{spec.note}</p>
       </div>
 
-      {/* Day rail */}
-      <div className="no-scrollbar -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-        {rail.map((d) => {
-          const active = d.key === selected
-          const dayIsToday = d.key === todayKey(wednesday)
-          return (
-            <button
-              key={d.key}
-              onClick={() => setSelected(d.key)}
-              className={`focus-ring min-w-[104px] flex-1 shrink-0 rounded-lg border p-2.5 text-left transition-colors sm:min-w-0 ${
-                active
-                  ? 'border-[var(--accent-line)] bg-[var(--accent-soft)]'
-                  : 'border-line bg-white hover:border-line-strong'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">
-                  {d.short}
-                </span>
-                {dayIsToday && (
-                  <span className="size-1 rounded-full" style={{ background: 'var(--accent)' }} />
-                )}
-              </div>
-              <div
-                className={`mt-0.5 text-[13px] font-semibold leading-tight ${
-                  active ? 'text-[var(--accent)]' : 'text-ink-700'
-                }`}
-              >
-                {d.title.replace(' — ', ' ')}
-              </div>
-            </button>
-          )
-        })}
+      {/* Weekly schedule */}
+      <div className="mt-6">
+        <Schedule
+          days={days}
+          selected={selected}
+          today={today}
+          onSelect={setSelected}
+          progressFor={progressFor}
+        />
       </div>
 
-      {/* Day header */}
-      <section className="card mb-6 p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="mb-1 flex flex-wrap items-center gap-2">
-              <span className="label">{day.weekday}</span>
-              {isToday && <Pill tone="accent">Today</Pill>}
+      {/* Selected day */}
+      <section className="mt-8">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="t-page text-[22px] sm:text-[26px]">{day.title}</h2>
+              {day.key === today && <Tag tone="accent">Today</Tag>}
             </div>
-            <h2 className="h-display text-2xl text-ink-900">{day.title}</h2>
-            <p className="mt-1 text-xs font-medium text-ink-500">{day.focus}</p>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-700">{day.blurb}</p>
+            <p className="t-meta mt-1">
+              {day.weekday} · {day.focus}
+            </p>
           </div>
 
           {day.alt && (
-            <div>
-              <div className="label mb-1.5">Wednesday is</div>
-              <div className="inline-flex rounded-lg border border-line bg-paper p-0.5">
-                {(['legs', 'arms'] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setWednesday(v)}
-                    className={`focus-ring rounded-[0.3125rem] px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                      wednesday === v
-                        ? 'bg-white text-ink-900 shadow-[0_1px_2px_rgba(24,24,27,0.06)]'
-                        : 'text-ink-500 hover:text-ink-900'
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1.5 max-w-[168px] text-[11px] leading-snug text-ink-400">
-                Alternate week to week — legs one week, arms the next.
-              </p>
+            <div className="flex flex-col items-start gap-1.5">
+              <span className="t-label">Wednesday</span>
+              <Segmented
+                size="sm"
+                ariaLabel="Wednesday variant"
+                value={wednesday}
+                onChange={setWednesday}
+                options={[
+                  { value: 'legs', label: 'Legs' },
+                  { value: 'arms', label: 'Arms' },
+                ]}
+              />
             </div>
           )}
         </div>
 
+        <p className="t-body mt-3 max-w-2xl">{day.blurb}</p>
+
         {!day.rest && (
-          <div className="mt-5 grid grid-cols-3 gap-2.5">
-            <MiniStat label="Time" value={fmtMinutes(minutes)} />
-            <MiniStat label="Exercises" value={String(day.exercises.length)} />
-            <MiniStat label="Work sets" value={String(totalSets)} />
+          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-rule py-3 sm:gap-x-7">
+            <Figure value={fmtMinutes(minutes)} label="Duration" />
+            <Divider />
+            <Figure value={String(day.exercises.length)} label="Exercises" />
+            <Divider />
+            <Figure value={String(totalSets)} label="Working sets" />
+            {done > 0 && (
+              <>
+                <Divider />
+                <Figure value={`${done}/${totalSets}`} label="Logged today" accent />
+                <Button size="sm" variant="ghost" className="ml-auto" onClick={() => clearDay(day.key)}>
+                  Reset day
+                </Button>
+              </>
+            )}
           </div>
         )}
       </section>
 
       {day.rest ? (
-        <RestDay day={day} />
+        <section className="mt-8">
+          <h3 className="t-section">Recovery</h3>
+          <ul className="mt-3 border-t border-rule">
+            {day.finisher.map((f, i) => (
+              <li key={i} className="flex gap-3.5 border-b border-rule-soft py-3">
+                <span className="mono w-4 shrink-0 text-[12.5px] text-ink-4">{i + 1}</span>
+                <span className="t-body text-ink-2">{f}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : (
         <>
-          <section className="mb-8">
-            <SectionTitle
-              kicker={`${day.warmup.reduce((a, b) => a + b.minutes, 0)} minutes`}
-              title="Warm-up"
-              sub="Do not rush it. Warm-up sets never count toward your work sets."
-            />
-            <div className="grid gap-2.5 sm:grid-cols-2">
+          <section className="mt-9">
+            <div className="flex items-baseline justify-between gap-3 border-b border-rule pb-2">
+              <h3 className="t-section">Warm-up</h3>
+              <span className="t-meta mono">{warmupMinutes} min</span>
+            </div>
+            <div className="grid sm:grid-cols-2 sm:gap-x-8">
               {day.warmup.map((w, i) => (
-                <div key={i} className="card flex gap-3 p-3.5">
-                  <span className="num shrink-0 text-xs font-medium text-ink-300">{i + 1}</span>
+                <div key={i} className="flex gap-3.5 border-b border-rule-soft py-3">
+                  <span className="mono w-4 shrink-0 text-[12.5px] text-ink-4">{i + 1}</span>
                   <div className="min-w-0">
                     <div className="flex items-baseline gap-2">
-                      <h4 className="text-sm font-semibold text-ink-900">{w.name}</h4>
-                      <span className="num text-[11px] text-ink-400">{w.minutes}m</span>
+                      <h4 className="t-item text-[13.5px]">{w.name}</h4>
+                      <span className="mono text-[11.5px] text-ink-3">{w.minutes}m</span>
                     </div>
-                    <p className="mt-0.5 text-xs leading-relaxed text-ink-500">{w.detail}</p>
+                    <p className="t-meta mt-0.5">{w.detail}</p>
                   </div>
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="mb-8">
-            <SectionTitle
-              kicker={`${totalSets} work sets`}
-              title="The session"
-              sub="Rest the full time listed between sets — that is what makes the next set as heavy as the last."
-            />
-            <div className="space-y-2.5">
-              {day.exercises.map((ex, i) => (
-                <ExerciseCard key={ex.id} ex={ex} index={i} week={week} />
+          <section className="mt-9">
+            <div className="flex items-baseline justify-between gap-3 border-b border-rule pb-2">
+              <h3 className="t-section">Session</h3>
+              <span className="t-meta">Tap a set number to log it</span>
+            </div>
+            <div>
+              {day.exercises.map((ex) => (
+                <ExerciseRow key={ex.id} ex={ex} dayKey={day.key} week={week} />
               ))}
             </div>
           </section>
 
-          <section>
-            <SectionTitle kicker="Before you leave" title="Cool-down" />
-            <div className="card divide-y divide-line">
+          <section className="mt-9">
+            <h3 className="t-section border-b border-rule pb-2">Cool-down</h3>
+            <ul>
               {day.finisher.map((f, i) => (
-                <div key={i} className="flex gap-3 p-4">
-                  <span
-                    className="mt-1.5 size-1 shrink-0 rounded-full"
-                    style={{ background: 'var(--accent)' }}
-                  />
-                  <span className="text-sm leading-relaxed text-ink-700">{f}</span>
-                </div>
+                <li key={i} className="flex gap-3.5 border-b border-rule-soft py-3">
+                  <span className="mono w-4 shrink-0 text-[12.5px] text-ink-4">{i + 1}</span>
+                  <span className="t-body text-ink-2">{f}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           </section>
         </>
       )}
+
     </div>
   )
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function Figure({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
   return (
-    <div className="panel p-2.5">
-      <div className="label">{label}</div>
-      <div className="num mt-0.5 text-base font-semibold text-ink-900">{value}</div>
+    <div>
+      <div className={`mono text-[16px] font-600 leading-none ${accent ? 'text-accent' : 'text-ink'}`}>
+        {value}
+      </div>
+      <div className="t-label mt-1.5">{label}</div>
     </div>
   )
+}
+
+function Divider() {
+  return <span aria-hidden className="hidden h-7 w-px bg-rule sm:block" />
 }

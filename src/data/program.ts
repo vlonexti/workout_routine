@@ -1034,8 +1034,7 @@ export const DAYS: Day[] = [
     title: 'Chest — Heavy',
     focus: 'Chest / Front Delts / Triceps',
     blurb:
-      'The strength day. Everything is built around six heavy sets of bench. Take the full rest between them — this is where the talking happens.',
-    hue: '#ff6a2b',
+      'Heavy pressing. Six sets of bench lead; take the full rest between them.',
     warmup: pushWarmup,
     exercises: monday,
     finisher: [
@@ -1051,8 +1050,7 @@ export const DAYS: Day[] = [
     title: 'Back — Heavy',
     focus: 'Back / Lats / Biceps',
     blurb:
-      'Heavy deadlifts and heavy rows first, then everything that makes your back wide. Biceps get their hardest work at the end.',
-    hue: '#38bdf8',
+      'Heavy pulls first, then lat width. Biceps get their heaviest work at the end.',
     warmup: pullWarmup,
     exercises: tuesday,
     finisher: [
@@ -1068,15 +1066,14 @@ export const DAYS: Day[] = [
     title: 'Legs',
     focus: 'Quads / Hamstrings / Glutes / Calves',
     blurb:
-      'Squats and RDLs are the whole day. Legs drive the hormonal response that makes your upper body grow — do not skip this.',
-    hue: '#a3e635',
+      'Squats and RDLs carry the session. Everything after them is accessory work.',
     alt: 'arms',
     warmup: legWarmup,
     exercises: legs,
     finisher: [
       'Couch stretch, 60 seconds per side.',
       'Walk 5 minutes before you sit down in a car. It genuinely helps tomorrow.',
-      'Extra 500 calories tonight. Leg day earns it.',
+      'Eat a larger dinner than usual — squats and RDLs cost the most.',
     ],
   },
   {
@@ -1086,15 +1083,14 @@ export const DAYS: Day[] = [
     title: 'Arms',
     focus: 'Biceps / Triceps / Forearms',
     blurb:
-      'The alternate Wednesday. Heavy close-grip and heavy curls up front, then eleven straight sets of pump work. Your arms will not fit in your sleeves.',
-    hue: '#a855f7',
+      'Alternate Wednesday. Heavy close-grip and curls up front, then higher-rep volume.',
     alt: 'legs',
     warmup: armWarmup,
     exercises: arms,
     finisher: [
       'Triceps overhead stretch, 30 seconds per side.',
       'Wrist circles and a light forearm stretch — you just did a lot of gripping.',
-      'Do not train arms tomorrow. Thursday is chest, and the triceps are already cooked.',
+      'No direct arm work tomorrow — Thursday is chest and the triceps are already fatigued.',
     ],
   },
   {
@@ -1104,13 +1100,12 @@ export const DAYS: Day[] = [
     title: 'Chest — Volume',
     focus: 'Upper Chest / Delts / Triceps',
     blurb:
-      'Lighter than Monday, twice the reps. Incline leads, speed bench sharpens the nervous system, then you chase a pump for the rest of the hour.',
-    hue: '#fb7185',
+      'Lighter than Monday at twice the reps. Incline leads, speed bench for bar speed.',
     warmup: pushWarmup,
     exercises: thursday,
     finisher: [
       'Pec and front delt stretch in a doorway, 30 seconds each.',
-      'Count your push-up reps in the notes on your phone. Beat them next week.',
+      'Note your push-up rep count and beat it next week.',
     ],
   },
   {
@@ -1120,8 +1115,7 @@ export const DAYS: Day[] = [
     title: 'Back — Volume + Arms',
     focus: 'Back / Traps / Biceps / Triceps',
     blurb:
-      'Rows and pulldowns for volume, speed pulls for technique, then a full arm blast to close out the week. Longest and most fun session of the five.',
-    hue: '#c6ff2e',
+      'High-volume back and arms. Speed pulls for technique, arms to finish.',
     warmup: pullWarmup,
     exercises: friday,
     finisher: [
@@ -1136,16 +1130,15 @@ export const DAYS: Day[] = [
     short: 'Sat',
     title: 'Rest',
     focus: 'Recovery',
-    blurb: 'Muscle is built on the days you do not lift. This one is not optional.',
-    hue: '#64748b',
+    blurb: 'Full rest. Eat and sleep like it is a training day.',
     rest: true,
     warmup: [],
     exercises: [],
     finisher: [
-      'Walk 20-30 minutes. Blood flow speeds recovery and burns a few hundred calories with zero fatigue cost.',
-      'Eat like it is a training day. Especially protein — muscle is repaired today, not yesterday.',
-      '9 hours of sleep. This does more for your gains than any supplement you can buy.',
-      'Stretch anything that is tight for 10 minutes while you watch something.',
+      'Walk 20-30 minutes. Aids recovery at no fatigue cost.',
+      'Full calories and protein. Repair happens on rest days.',
+      'Nine hours of sleep. Recovery happens here, not in the gym.',
+      'Ten minutes of stretching on anything tight.',
     ],
   },
   {
@@ -1154,16 +1147,15 @@ export const DAYS: Day[] = [
     short: 'Sun',
     title: 'Rest + Prep',
     focus: 'Recovery / Food prep',
-    blurb: 'Rest, then set the week up so you never have to think about food again until Friday.',
-    hue: '#64748b',
+    blurb: 'Rest, plus the cooking and shopping that makes the week run.',
     rest: true,
     warmup: [],
     exercises: [],
     finisher: [
-      'Cook a big batch of rice and shred two rotisserie chickens into containers. That is dinner sorted for 4 nights.',
-      'Portion out 5 bags of dry oats with peanut butter measured on top so mornings take 3 minutes.',
-      'Check your PRs on the Lifters page. Finished week 4? Retest and bump the numbers.',
-      '9 hours of sleep. Monday is the heaviest bench day of the week.',
+      'Batch-cook rice and shred two rotisserie chickens. Covers four dinners.',
+      'Portion five bags of oats with the peanut butter measured on top.',
+      'Check PRs on the Lifters page. After week 4, retest and update them.',
+      'Nine hours of sleep — Monday is the heaviest bench session.',
     ],
   },
 ]

@@ -17,7 +17,7 @@ export const RECIPES: Recipe[] = [
     fat: 30,
     goals: ['bulk'],
     blurb:
-      'Oats, peanut butter, banana. The single most important meal in the plan — it is a third of your calories before you have even left the house.',
+      'Quick breakfast before school. Roughly a third of the day\'s calories.',
     ingredients: [
       '1 cup dry old-fashioned oats',
       '1 cup whole milk (plus a splash more if it is too thick)',
@@ -45,7 +45,7 @@ export const RECIPES: Recipe[] = [
     fat: 3,
     goals: ['bulk'],
     blurb:
-      'Grabbed on the way to the weight room. Fast carbs 30-45 minutes out so you are not running on fumes by the fourth set of bench.',
+      'Fast carbs 30-45 minutes before lifting. Grabbed on the way in.',
     ingredients: ['1 banana', '1 pint Kwik Trip chocolate milk (or any 8 oz chocolate milk)'],
     steps: [
       'Buy it. Drink it in the parking lot.',
@@ -65,7 +65,7 @@ export const RECIPES: Recipe[] = [
     fat: 26,
     goals: ['bulk'],
     blurb:
-      'The meal that does the most work in this whole plan. A store rotisserie chicken is the cheapest protein per dollar you can buy, and it needs zero cooking.',
+      'Post-lift protein with no cooking. Rotisserie chicken is the cheapest protein per dollar.',
     ingredients: [
       'Half a rotisserie chicken, meat pulled off (about 8 oz)',
       '1.5 cups cooked white rice (microwave rice cups are fine)',
@@ -92,7 +92,7 @@ export const RECIPES: Recipe[] = [
     fat: 37,
     goals: ['bulk'],
     blurb:
-      'One pan, one burner, ten minutes. Ground beef is the best-tasting way to eat a lot of calories without feeling like you are force-feeding yourself.',
+      'One pan, ten minutes. Calorie-dense without much volume.',
     ingredients: [
       '1/2 lb 85/15 ground beef',
       '1.5 cups cooked rice',
@@ -119,7 +119,7 @@ export const RECIPES: Recipe[] = [
     fat: 45,
     goals: ['bulk'],
     blurb:
-      'The emergency button. If the scale has not moved in ten days, drink one of these a day and it will.',
+      'For stalled weeks. Add one a day if the scale has not moved in ten days.',
     ingredients: [
       '2 cups whole milk',
       '2 scoops whey',
@@ -145,7 +145,7 @@ export const RECIPES: Recipe[] = [
     fat: 26,
     goals: ['bulk'],
     blurb:
-      'Cottage cheese is casein — slow protein that drips into your bloodstream for 6-7 hours while you sleep. This is when muscle actually gets built.',
+      'Casein digests over 6-7 hours, so protein keeps arriving overnight.',
     ingredients: ['1 cup full-fat cottage cheese', '2 tbsp peanut butter', '1 tbsp honey', 'Cinnamon'],
     steps: [
       'Cottage cheese in a bowl.',
@@ -167,7 +167,7 @@ export const RECIPES: Recipe[] = [
     fat: 12,
     goals: ['cut'],
     blurb:
-      'Same breakfast, half the oats, water instead of milk, and the protein comes from a scoop instead of fat. Keeps you full until school lunch.',
+      'Half the oats, water instead of milk, protein from a scoop. Holds until lunch.',
     ingredients: [
       '1/2 cup dry oats',
       'Water',
@@ -194,7 +194,7 @@ export const RECIPES: Recipe[] = [
     fat: 0,
     goals: ['cut'],
     blurb:
-      'Enough sugar to fuel the session, almost no calories. The coffee is the actual performance drug here — it genuinely adds reps.',
+      'Enough sugar to train on, almost no calories. Caffeine 45 minutes out.',
     ingredients: ['1 banana', '12-16 oz black coffee (Kwik Trip refill, or any energy drink with no sugar)'],
     steps: [
       'Coffee 45 minutes before you lift.',
@@ -213,7 +213,7 @@ export const RECIPES: Recipe[] = [
     fat: 12,
     goals: ['cut'],
     blurb:
-      'The exact same store chicken, just pull the skin off and go breast-heavy. That one change drops 150 calories with no loss of protein.',
+      'Same chicken, skin removed and breast-heavy. About 150 kcal less, same protein.',
     ingredients: [
       '6 oz rotisserie chicken, skin removed, breast meat if you can',
       '3/4 cup cooked white rice',
@@ -238,7 +238,7 @@ export const RECIPES: Recipe[] = [
     fat: 7,
     goals: ['cut'],
     blurb:
-      'Frozen vegetables are the cutting cheat code. Two cups of broccoli is 60 calories and fills half your stomach.',
+      'Two cups of frozen broccoli is 60 kcal and most of the volume.',
     ingredients: [
       '6 oz chicken breast (frozen grilled strips are fine)',
       '3/4 cup cooked rice',
@@ -263,7 +263,7 @@ export const RECIPES: Recipe[] = [
     fat: 0,
     goals: ['cut'],
     blurb:
-      'For the 3pm crash. 22 grams of protein for 200 calories is about as good a ratio as food gets.',
+      'Afternoon snack. 22g protein for 200 kcal.',
     ingredients: ['1 cup nonfat plain Greek yogurt', '1/2 cup frozen berries', '1 tsp honey'],
     steps: [
       'Berries straight from frozen into the yogurt.',
@@ -282,7 +282,7 @@ export const RECIPES: Recipe[] = [
     fat: 5,
     goals: ['cut'],
     blurb:
-      'Slow protein overnight so you hold onto muscle while the calories are low. This is the meal that decides whether you lose fat or lose gains.',
+      'Slow protein overnight. This is what protects muscle in a deficit.',
     ingredients: ['1 cup low-fat cottage cheese', '1/2 cup frozen berries', 'Cinnamon'],
     steps: ['Combine. Eat within an hour of going to bed.'],
     swap: '1.5 cups of Greek yogurt does the same job.',
@@ -310,7 +310,7 @@ export const PLANS: Record<Goal, Plan> = {
     title: 'Bulk',
     tagline: 'Gain 0.5 to 1 lb a week',
     blurb:
-      'A lean bulk. Enough of a surplus to add muscle fast, small enough that you are not just getting fat. If the scale is climbing faster than 1 lb a week, cut the bedtime bowl.',
+      'A lean bulk. Target +0.5-1 lb a week; if the scale climbs faster, drop the bedtime meal.',
     meals: ['growth-bowl', 'kwik-fuel', 'rotisserie-bowl', 'beef-skillet'],
     extras: ['mass-shake', 'casein-bowl'],
     rules: [
@@ -343,7 +343,7 @@ export const PLANS: Record<Goal, Plan> = {
     title: 'Cut',
     tagline: 'Lose 1 to 1.5 lb a week, keep every pound of muscle',
     blurb:
-      'High protein, moderate carbs around training, low fat everywhere else. Lift exactly the same weights as on a bulk — the second your lifts drop, you are losing muscle, not fat.',
+      'High protein, carbs around training, low fat elsewhere. Keep the same weights on the bar.',
     meals: ['lean-oats', 'cut-prelift', 'cut-rotisserie', 'cut-dinner', 'greek-cup', 'cut-casein'],
     extras: [],
     rules: [
