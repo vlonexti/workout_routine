@@ -36,37 +36,9 @@ insert into public.app_settings (id, week, wednesday)
 values ('shared', 1, 'legs')
 on conflict (id) do nothing;
 
--- ---------------------------------------------------------------------------
--- Completed sets. The id encodes profile|date|day|exercise|set so the client
--- can build it without a round trip, and day_stamp keeps each session's ticks
--- separate from last week's.
--- ---------------------------------------------------------------------------
-create table if not exists public.set_logs (
-  id          text primary key,
-  profile_id  text        not null references public.profiles(id) on delete cascade,
-  day_stamp   date        not null,
-  day_key     text        not null,
-  exercise_id text        not null,
-  set_index   int         not null,
-  created_at  timestamptz not null default now()
-);
-
-create index if not exists set_logs_day_idx on public.set_logs (day_stamp);
-create index if not exists set_logs_profile_day_idx on public.set_logs (profile_id, day_stamp);
-
--- Keep the table from growing forever; three months of history is plenty.
-create or replace function public.prune_set_logs() returns trigger
-language plpgsql as $$
-begin
-  delete from public.set_logs where day_stamp < current_date - interval '90 days';
-  return null;
-end;
-$$;
-
-drop trigger if exists prune_set_logs_trigger on public.set_logs;
-create trigger prune_set_logs_trigger
-  after insert on public.set_logs
-  for each statement execute function public.prune_set_logs();
+-- The site used to tick off individual sets; it does not any more, so this
+-- table is dead. Dropped here so a re-run tidies up after an earlier version.
+drop table if exists public.set_logs cascade;
 
 -- ---------------------------------------------------------------------------
 -- Row-level security
@@ -82,19 +54,14 @@ create trigger prune_set_logs_trigger
 -- ---------------------------------------------------------------------------
 alter table public.profiles     enable row level security;
 alter table public.app_settings enable row level security;
-alter table public.set_logs     enable row level security;
 
 drop policy if exists profiles_anon_all     on public.profiles;
 drop policy if exists app_settings_anon_all on public.app_settings;
-drop policy if exists set_logs_anon_all     on public.set_logs;
 
 create policy profiles_anon_all on public.profiles
   for all to anon, authenticated using (true) with check (true);
 
 create policy app_settings_anon_all on public.app_settings
-  for all to anon, authenticated using (true) with check (true);
-
-create policy set_logs_anon_all on public.set_logs
   for all to anon, authenticated using (true) with check (true);
 
 -- ---------------------------------------------------------------------------

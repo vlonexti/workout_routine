@@ -9,7 +9,6 @@ Live at **[justloofy.dev](https://justloofy.dev)**.
 - **Workouts** — Mon chest (heavy), Tue back (heavy), Wed legs *or* arms, Thu chest (volume), Fri back (volume) + arms. Weekends off. Every session is programmed to land around 2h 20m including rest and talking.
 - **Every weight is a percentage of your PRs.** Enter one bench number and the whole program fills in; anything you leave blank is estimated from the lifts you did enter and flagged as such.
 - **A 4-week wave.** Weeks 1–3 climb, week 4 deloads. The week selector rescales every number on the page.
-- **Rest timers.** Tap a set when you finish it and the timer starts, beeps and vibrates when rest is over.
 - **Bulk and Cut** — calorie and protein targets from your bodyweight, a full day of meals with macros and recipes, a grocery list, and an honest read on supplements.
 - **Lifters** — add people, edit PRs, estimate a 1RM from a set you've actually done.
 
@@ -37,9 +36,10 @@ The anon key itself being public is normal and not the issue — it ships in eve
 | --- | --- |
 | `profiles` | One row per lifter: name, bodyweight, unit, goal, colour, and PRs as JSON. |
 | `app_settings` | One row, `shared` — the current training week and whether Wednesday is legs or arms. |
-| `set_logs` | One row per completed set, stamped with the date so each session starts clean and you get a training history for free. Rows older than 90 days are pruned automatically. |
 
 Which lifter is selected is deliberately **not** synced — that's per-device, so Steven's phone and Zach's phone can each stay on their own profile.
+
+The site doesn't track individual sets. Rest times are printed on each exercise and that's it; there are no checkboxes and no countdown to babysit.
 
 ## Running it locally
 
