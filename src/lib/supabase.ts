@@ -6,14 +6,13 @@ import type {
   Lifter,
   PRKey,
   PREntry,
-  SetLog,
   TargetOverrides,
   Unit,
   WednesdayVariant,
 } from './types'
 
 /*
- * PostgREST client written against fetch. The whole surface is four tables
+ * PostgREST client written against fetch. The whole surface is three tables
  * and upsert/delete, which is not worth a 50 kB SDK, and doing it by hand
  * keeps every failure path visible.
  */
@@ -118,18 +117,6 @@ interface BodyweightRow {
   logged_on: string
 }
 
-interface SetLogRow {
-  id: string
-  lifter_id: string
-  performed_on: string
-  day_key: string
-  exercise_id: string
-  set_index: number
-  weight: number | string | null
-  reps: number | null
-  training_week: number | null
-}
-
 const num = (v: number | string) => (typeof v === 'number' ? v : Number.parseFloat(v))
 
 function toLifter(r: LifterRow, prs: Partial<Record<PRKey, number>>): Lifter {
@@ -141,7 +128,7 @@ function toLifter(r: LifterRow, prs: Partial<Record<PRKey, number>>): Lifter {
     bodyweight: num(r.bodyweight) || 165,
     goal: (r.goal === 'cut' ? 'cut' : 'bulk') as Goal,
     trainingWeek: r.training_week || 1,
-    wednesday: (r.wednesday === 'arms' ? 'arms' : 'legs') as WednesdayVariant,
+    wednesday: ((r.wednesday === 'core' || r.wednesday === 'legs') ? r.wednesday : 'auto') as WednesdayVariant,
     targets: {
       kcal: r.kcal_target,
       protein: r.protein_target,
@@ -175,20 +162,6 @@ function toBodyweight(r: BodyweightRow): BodyweightEntry {
   }
 }
 
-function toSetLog(r: SetLogRow): SetLog {
-  return {
-    id: r.id,
-    lifterId: r.lifter_id,
-    performedOn: r.performed_on,
-    dayKey: r.day_key,
-    exerciseId: r.exercise_id,
-    setIndex: r.set_index,
-    weight: r.weight == null ? null : num(r.weight),
-    reps: r.reps,
-    trainingWeek: r.training_week,
-  }
-}
-
 /** Newest entry per lift wins — that is the lifter's current PR. */
 export function currentPRs(entries: PREntry[]): Partial<Record<PRKey, number>> {
   const out: Partial<Record<PRKey, number>> = {}
@@ -211,22 +184,18 @@ export interface Snapshot {
   lifters: Lifter[]
   prEntries: PREntry[]
   bodyweight: BodyweightEntry[]
-  setLogs: SetLog[]
 }
 
-/** Everything the app needs, in four parallel requests. */
+/** Everything the app needs, in three parallel requests. */
 export async function loadAll(): Promise<Snapshot> {
   // 120 days of history is plenty for deltas and the "last session" line, and
   // keeps the payload small enough to fetch on every load.
   const since = today(new Date(Date.now() - 120 * 86_400_000))
 
-  const [lifterRows, prRows, bwRows, setRows] = await Promise.all([
+  const [lifterRows, prRows, bwRows] = await Promise.all([
     json<LifterRow[]>('lifters?select=*&order=sort_order.asc,created_at.asc', { headers: headers() }),
     json<PRRow[]>('pr_entries?select=*&order=recorded_at.asc', { headers: headers() }),
     json<BodyweightRow[]>(`bodyweight_entries?select=*&logged_on=gte.${since}&order=logged_on.asc`, {
-      headers: headers(),
-    }),
-    json<SetLogRow[]>(`set_logs?select=*&performed_on=gte.${since}&order=performed_on.desc`, {
       headers: headers(),
     }),
   ])
@@ -243,7 +212,6 @@ export async function loadAll(): Promise<Snapshot> {
     lifters: lifterRows.map((r) => toLifter(r, currentPRs(byLifter.get(r.id) ?? []))),
     prEntries,
     bodyweight: bwRows.map(toBodyweight),
-    setLogs: setRows.map(toSetLog),
   }
 }
 
@@ -357,46 +325,6 @@ export async function upsertBodyweight(entry: BodyweightEntry): Promise<void> {
       },
     ]),
   })
-}
-
-export async function upsertSetLog(log: SetLog): Promise<void> {
-  await request('set_logs?on_conflict=lifter_id,performed_on,day_key,exercise_id,set_index', {
-    method: 'POST',
-    headers: headers(UPSERT),
-    body: JSON.stringify([
-      {
-        id: log.id,
-        lifter_id: log.lifterId,
-        performed_on: log.performedOn,
-        day_key: log.dayKey,
-        exercise_id: log.exerciseId,
-        set_index: log.setIndex,
-        weight: log.weight,
-        reps: log.reps,
-        training_week: log.trainingWeek,
-      },
-    ]),
-  })
-}
-
-export async function deleteSetLog(id: string): Promise<void> {
-  await request(`set_logs?id=eq.${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers: headers(MINIMAL),
-  })
-}
-
-export async function deleteDayLogs(
-  lifterId: string,
-  performedOn: string,
-  dayKey: string,
-): Promise<void> {
-  const q = [
-    `lifter_id=eq.${encodeURIComponent(lifterId)}`,
-    `performed_on=eq.${encodeURIComponent(performedOn)}`,
-    `day_key=eq.${encodeURIComponent(dayKey)}`,
-  ].join('&')
-  await request(`set_logs?${q}`, { method: 'DELETE', headers: headers(MINIMAL) })
 }
 
 /** True when there is not a single lifter yet — used to gate the import. */

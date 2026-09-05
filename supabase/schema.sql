@@ -22,7 +22,7 @@ create table if not exists public.lifters (
 
   -- Training state is per lifter: Steven can be in week 3 while Zach is in 1.
   training_week  int         not null default 1      check (training_week between 1 and 4),
-  wednesday      text        not null default 'legs' check (wednesday in ('legs', 'arms')),
+  wednesday      text        not null default 'auto' check (wednesday in ('auto', 'core', 'legs')),
 
   -- Nutrition targets are normally derived from bodyweight + goal. These are
   -- only set when someone deliberately overrides the calculated number.
@@ -121,14 +121,14 @@ declare
   lift_key text;
   lift_val numeric;
   wk int := 1;
-  wed text := 'legs';
+  wed text := 'auto';
 begin
   if to_regclass('public.profiles') is null then
     return;
   end if;
 
   if to_regclass('public.app_settings') is not null then
-    select coalesce(week, 1), coalesce(wednesday, 'legs')
+    select coalesce(week, 1), 'auto'
       into wk, wed
       from public.app_settings
      where id = 'shared'
@@ -148,7 +148,7 @@ begin
             coalesce(p.bodyweight, 165),
             coalesce(p.goal, 'bulk'),
             coalesce(wk, 1),
-            coalesce(wed, 'legs'),
+            coalesce(wed, 'auto'),
             coalesce(p.created_at, now()))
     returning id into new_id;
 
@@ -161,6 +161,25 @@ begin
       end loop;
     end if;
   end loop;
+end $$;
+
+-- ===========================================================================
+-- Wednesday now runs a two-week rotation (core / legs) derived from the
+-- training week, with 'auto' meaning follow the rotation. Older rows stored
+-- 'legs' or 'arms'; move them all to 'auto' so the rotation takes over.
+-- ===========================================================================
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'lifters' and column_name = 'wednesday'
+  ) then
+    alter table public.lifters drop constraint if exists lifters_wednesday_check;
+    update public.lifters set wednesday = 'auto' where wednesday not in ('auto', 'core', 'legs');
+    alter table public.lifters alter column wednesday set default 'auto';
+    alter table public.lifters
+      add constraint lifters_wednesday_check check (wednesday in ('auto', 'core', 'legs'));
+  end if;
 end $$;
 
 -- ===========================================================================

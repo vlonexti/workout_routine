@@ -15,7 +15,6 @@ import type {
   Lifter,
   PRKey,
   PREntry,
-  SetLog,
   Unit,
   WednesdayVariant,
 } from './types'
@@ -36,10 +35,9 @@ interface Data {
   lifters: Lifter[]
   prEntries: PREntry[]
   bodyweight: BodyweightEntry[]
-  setLogs: SetLog[]
 }
 
-const EMPTY: Data = { lifters: [], prEntries: [], bodyweight: [], setLogs: [] }
+const EMPTY: Data = { lifters: [], prEntries: [], bodyweight: [] }
 
 interface Store {
   status: LoadStatus
@@ -66,19 +64,6 @@ interface Store {
   prDelta: (id: string, lift: PRKey) => number | null
 
   bodyweightHistory: (id: string) => BodyweightEntry[]
-
-  isSetDone: (dayKey: string, exerciseId: string, setIndex: number) => boolean
-  toggleSet: (
-    dayKey: string,
-    exerciseId: string,
-    setIndex: number,
-    weight: number | null,
-    reps: number | null,
-  ) => void
-  clearDay: (dayKey: string) => void
-  doneToday: (dayKey: string) => number
-  /** Most recent completed session for an exercise, excluding today. */
-  lastSession: (exerciseId: string) => { weight: number | null; reps: number | null; on: string } | null
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -133,7 +118,7 @@ async function migrateLegacyLocalData(): Promise<boolean> {
         bodyweight: p.bodyweight && p.bodyweight > 0 ? p.bodyweight : 165,
         goal: p.goal === 'cut' ? 'cut' : 'bulk',
         trainingWeek: parsed.week ?? 1,
-        wednesday: parsed.wednesday === 'arms' ? 'arms' : 'legs',
+        wednesday: 'auto',
         targets: { kcal: null, protein: null, carbs: null, fat: null },
         sortOrder: i,
         prs: {},
@@ -357,7 +342,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           lifters: d.lifters.filter((l) => l.id !== id),
           prEntries: d.prEntries.filter((e) => e.lifterId !== id),
           bodyweight: d.bodyweight.filter((b) => b.lifterId !== id),
-          setLogs: d.setLogs.filter((s) => s.lifterId !== id),
         }),
         () => db.deleteLifter(id),
       )
@@ -412,80 +396,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     bodyweightHistory: (id) =>
       data.bodyweight.filter((b) => b.lifterId === id).sort((a, b) => a.loggedOn.localeCompare(b.loggedOn)),
 
-    isSetDone: (dayKey, exerciseId, setIndex) =>
-      data.setLogs.some(
-        (s) =>
-          s.lifterId === lifter?.id &&
-          s.performedOn === db.today() &&
-          s.dayKey === dayKey &&
-          s.exerciseId === exerciseId &&
-          s.setIndex === setIndex,
-      ),
-
-    toggleSet: (dayKey, exerciseId, setIndex, weight, reps) => {
-      const on = db.today()
-      const existing = data.setLogs.find(
-        (s) =>
-          s.lifterId === lifter.id &&
-          s.performedOn === on &&
-          s.dayKey === dayKey &&
-          s.exerciseId === exerciseId &&
-          s.setIndex === setIndex,
-      )
-      if (existing) {
-        mutate(
-          (d) => ({ ...d, setLogs: d.setLogs.filter((s) => s.id !== existing.id) }),
-          () => db.deleteSetLog(existing.id),
-        )
-        return
-      }
-      const log: SetLog = {
-        id: db.newId(),
-        lifterId: lifter.id,
-        performedOn: on,
-        dayKey,
-        exerciseId,
-        setIndex,
-        weight,
-        reps,
-        trainingWeek: lifter.trainingWeek,
-      }
-      mutate(
-        (d) => ({ ...d, setLogs: [log, ...d.setLogs] }),
-        () => db.upsertSetLog(log),
-      )
-    },
-
-    clearDay: (dayKey) => {
-      const on = db.today()
-      mutate(
-        (d) => ({
-          ...d,
-          setLogs: d.setLogs.filter(
-            (s) => !(s.lifterId === lifter.id && s.performedOn === on && s.dayKey === dayKey),
-          ),
-        }),
-        () => db.deleteDayLogs(lifter.id, on, dayKey),
-      )
-    },
-
-    doneToday: (dayKey) =>
-      data.setLogs.filter(
-        (s) => s.lifterId === lifter?.id && s.performedOn === db.today() && s.dayKey === dayKey,
-      ).length,
-
-    lastSession: (exerciseId) => {
-      const on = db.today()
-      const prior = data.setLogs
-        .filter((s) => s.lifterId === lifter?.id && s.exerciseId === exerciseId && s.performedOn < on)
-        .sort((a, b) => b.performedOn.localeCompare(a.performedOn))
-      if (!prior.length) return null
-      const day = prior[0].performedOn
-      const sets = prior.filter((s) => s.performedOn === day)
-      // Report the heaviest set of that session — the number worth beating.
-      const best = sets.reduce((a, b) => ((b.weight ?? 0) > (a.weight ?? 0) ? b : a))
-      return { weight: best.weight, reps: best.reps, on: day }
-    },
   }
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>

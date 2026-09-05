@@ -230,10 +230,10 @@ export function plateBreakdown(total: number, unit: Unit): string | null {
 
 /**
  * Seconds of walking over, loading plates, and talking around each exercise.
- * Deliberately generous — this is a session with a training partner, not a
- * stopwatch time trial.
+ * Generous enough to be honest about racking plates and walking between
+ * machines, without assuming a long social session.
  */
-const SETUP_SECONDS = 180
+const SETUP_SECONDS = 140
 
 export function exerciseSets(ex: Exercise, week: number): number {
   const spec = weekSpec(week)

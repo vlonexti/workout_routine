@@ -1,6 +1,10 @@
 export type Unit = 'lb' | 'kg'
 export type Goal = 'bulk' | 'cut'
-export type WednesdayVariant = 'legs' | 'arms'
+/**
+ * Which Wednesday session runs. 'auto' follows the two-week rotation derived
+ * from the training week; the other two pin it manually.
+ */
+export type WednesdayVariant = 'auto' | 'core' | 'legs'
 
 /** Every lift we track a personal record for. Everything else is a % of one of these. */
 export type PRKey =
@@ -83,18 +87,6 @@ export interface BodyweightEntry {
   loggedOn: string
 }
 
-export interface SetLog {
-  id: string
-  lifterId: string
-  performedOn: string
-  dayKey: string
-  exerciseId: string
-  setIndex: number
-  weight: number | null
-  reps: number | null
-  trainingWeek: number | null
-}
-
 /* ------------------------------------------------------------------ */
 /*  Program                                                            */
 /* ------------------------------------------------------------------ */
@@ -150,7 +142,6 @@ export interface Day {
   focus: string
   blurb: string
   rest?: boolean
-  alt?: string
   warmup: WarmupItem[]
   exercises: Exercise[]
   finisher: string[]
