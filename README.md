@@ -41,7 +41,9 @@ npm run preview   # serve the production build
 
 Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds the site and publishes it to GitHub Pages. `public/CNAME` pins the custom domain to `justloofy.dev`.
 
-One-time repo setup (Settings → Pages): set **Source** to **GitHub Actions**.
+**One-time setup:** go to **Settings → Pages** and set **Source** to **GitHub Actions**. This cannot be automated — the workflow's built-in token is allowed to manage an existing Pages site but not to create one. Until it's done, the deploy fails at the `configure-pages` step.
+
+DNS for `justloofy.dev` already points at the GitHub Pages apex IPs (`185.199.108-111.153`), so nothing needs changing at the registrar.
 
 ## Editing the program
 
