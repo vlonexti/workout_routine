@@ -1,4 +1,4 @@
--- IRON — Supabase schema
+-- Sexy Workouts — Supabase schema
 --
 -- Paste this whole file into the Supabase dashboard (SQL Editor -> New query)
 -- and run it. It is idempotent: safe to run again after changes.

@@ -25,7 +25,14 @@
   --color-rule-soft: #edeae5;
   --color-rule-strong: #d3cfc8;
 
-  /* IRON accent — deep crimson */
+  /* Brand crimson — the logo mark only, never retinted. */
+  --color-brand: #b02f30;
+
+  /*
+   * Accent. The literal here is the default; App.tsx overwrites these four
+   * at runtime with the active lifter's colour, so every selected state,
+   * underline, focus ring and primary button follows whoever is training.
+   */
   --color-accent: #b02f30;
   --color-accent-hover: #932527;
   --color-accent-bg: #fbeeee;
@@ -50,10 +57,8 @@
 }
 
 :root {
-  /* Set per active lifter. Used for identity marks only, never page-wide. */
+  /* Alias kept for the few places that name the lifter explicitly. */
   --lifter: var(--color-accent);
-  --lifter-bg: var(--color-accent-bg);
-  --lifter-rule: var(--color-accent-rule);
 
   --t-fast: 120ms;
   --t-base: 160ms;

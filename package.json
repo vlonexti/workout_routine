@@ -1,7 +1,7 @@
 {
-  "name": "workout-routine",
+  "name": "sexy-workouts",
   "version": "1.0.0",
-  "description": "IRON — 5-day PR-based strength program + nutrition for Steven & Zach",
+  "description": "Sexy Workouts — 5-day PR-based strength program + nutrition for Steven & Zach",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

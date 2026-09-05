@@ -1,4 +1,4 @@
-# IRON
+# Sexy Workouts
 
 A five-day strength program and training log for Steven and Zach, plus the food that goes with it.
 
@@ -40,7 +40,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 ### Migration from the old device-only version
 
-Anything saved in the browser before the database existed (`iron.v1` / `iron.v2`) is imported automatically the first time IRON connects to an **empty** project — lifters, PRs and bodyweight. It only runs against an empty database, so it can never overwrite real rows, and it marks itself done afterwards.
+Anything saved in the browser before the database existed (`iron.v1` / `iron.v2`) is imported automatically the first time Sexy Workouts connects to an **empty** project — lifters, PRs and bodyweight. It only runs against an empty database, so it can never overwrite real rows, and it marks itself done afterwards.
 
 `supabase/schema.sql` separately migrates the earlier `profiles` + `app_settings` tables into the normalised layout, leaving the old tables in place rather than dropping them.
 

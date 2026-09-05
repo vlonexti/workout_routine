@@ -76,7 +76,7 @@ export function SetupScreen() {
         <span className="t-label block">Setup required</span>
         <h1 className="t-page mt-2">Connect the database</h1>
         <p className="t-body mt-3 max-w-lg">
-          IRON keeps every lifter, PR and logged set in Postgres so the same numbers show up on any
+          Sexy Workouts keeps every lifter, PR and weigh-in in Postgres so the same numbers show up on any
           phone or laptop. It needs the connection details before it can run.
         </p>
 
@@ -96,7 +96,7 @@ export function SetupScreen() {
 
         <p className="t-meta mt-5">
           Anything saved on this device before the database existed is imported automatically the
-          first time IRON connects to an empty project.
+          first time the app connects to an empty project.
         </p>
       </div>
     </div>

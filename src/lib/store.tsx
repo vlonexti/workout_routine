@@ -482,14 +482,18 @@ export function useStore(): Store {
 }
 
 /**
- * One flat colour per lifter. Used to identify whose data is on screen —
- * a dot, an initial, a thin edge — never to repaint the whole page.
+ * One flat colour per lifter. Drives every accent in the app: selected
+ * states, underlines, focus rings and primary buttons all follow whoever is
+ * training. The brand mark keeps its own crimson and is never retinted.
  */
-export const ACCENTS: Record<AccentKey, { name: string; base: string; soft: string; line: string }> = {
-  ember: { name: 'Crimson', base: '#b23132', soft: '#fbeeee', line: '#eec9c9' },
-  ice: { name: 'Blue', base: '#2a5fb0', soft: '#edf2fb', line: '#c6d6ef' },
-  volt: { name: 'Green', base: '#2f7d4f', soft: '#eef6f1', line: '#c6e0d0' },
-  violet: { name: 'Violet', base: '#6b4bab', soft: '#f2effa', line: '#d4cbee' },
-  lime: { name: 'Amber', base: '#96702a', soft: '#faf4e9', line: '#e6d5b3' },
-  rose: { name: 'Rose', base: '#a83a5c', soft: '#fbeef2', line: '#eec9d5' },
+export const ACCENTS: Record<
+  AccentKey,
+  { name: string; base: string; hover: string; soft: string; line: string }
+> = {
+  ember: { name: 'Crimson', base: '#b23132', hover: '#94282a', soft: '#fbeeee', line: '#eec9c9' },
+  ice: { name: 'Blue', base: '#2a5fb0', hover: '#224e93', soft: '#edf2fb', line: '#c6d6ef' },
+  volt: { name: 'Green', base: '#2f7d4f', hover: '#266740', soft: '#eef6f1', line: '#c6e0d0' },
+  violet: { name: 'Violet', base: '#6b4bab', hover: '#593e8f', soft: '#f2effa', line: '#d4cbee' },
+  lime: { name: 'Amber', base: '#96702a', hover: '#7c5c22', soft: '#faf4e9', line: '#e6d5b3' },
+  rose: { name: 'Rose', base: '#a83a5c', hover: '#8d304d', soft: '#fbeef2', line: '#eec9d5' },
 }

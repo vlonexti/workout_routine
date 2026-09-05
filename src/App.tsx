@@ -66,14 +66,18 @@ export default function App() {
   const [view, setView] = useState<View>('workouts')
   const [menu, setMenu] = useState(false)
 
-  // The active lifter tints identity marks only — never the whole page.
+  // The active lifter's colour becomes the accent, so every selected state,
+  // underline, focus ring and primary button follows whoever is training.
+  // The brand mark keeps its own crimson and is never retinted.
   useEffect(() => {
     if (!lifter) return
     const a = ACCENTS[lifter.accent] ?? ACCENTS.ember
     const r = document.documentElement.style
+    r.setProperty('--color-accent', a.base)
+    r.setProperty('--color-accent-hover', a.hover)
+    r.setProperty('--color-accent-bg', a.soft)
+    r.setProperty('--color-accent-rule', a.line)
     r.setProperty('--lifter', a.base)
-    r.setProperty('--lifter-bg', a.soft)
-    r.setProperty('--lifter-rule', a.line)
   }, [lifter])
 
   useEffect(() => {
@@ -89,10 +93,12 @@ export default function App() {
         <button
           onClick={() => setView('workouts')}
           className="focus-ring flex shrink-0 items-center gap-2 rounded-[--radius-sm] pr-1"
-          title="IRON"
+          title="Sexy Workouts"
         >
           <Mark className="size-[26px]" />
-          <span className="text-[17px] font-700 leading-none tracking-[-0.045em] text-ink">IRON</span>
+          <span className="whitespace-nowrap text-[15px] font-700 leading-none tracking-[-0.035em] text-ink sm:text-[16px]">
+            Sexy Workouts
+          </span>
         </button>
 
         <nav className="ml-4 hidden items-center md:flex" aria-label="Sections">
@@ -130,20 +136,31 @@ export default function App() {
         </div>
       </div>
 
+      {/* Sole navigation on phones — full-width rows, comfortable to thumb. */}
       {menu && (
         <nav className="border-t border-rule bg-surface md:hidden" aria-label="Sections">
-          <div className="shell grid grid-cols-2 gap-1.5 py-3">
-            {NAV.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => setView(n.id)}
-                className={`focus-ring h-10 rounded-[--radius-md] border px-3 text-left text-[13px] font-semibold transition-colors duration-[--t-fast] ${
-                  view === n.id ? 'border-accent-rule bg-accent-bg text-accent' : 'border-rule text-ink-2'
-                }`}
-              >
-                {n.label}
-              </button>
-            ))}
+          <div className="shell py-1">
+            {NAV.map((n) => {
+              const active = view === n.id
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => setView(n.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className="focus-ring relative flex h-12 w-full items-center border-b border-rule-soft text-[15px] font-semibold last:border-b-0"
+                  style={{ color: active ? 'var(--color-accent)' : 'var(--color-ink-2)' }}
+                >
+                  {active && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-2 left-0 w-[3px] rounded-full"
+                      style={{ background: 'var(--color-accent)' }}
+                    />
+                  )}
+                  <span className="pl-3.5">{n.label}</span>
+                </button>
+              )
+            })}
           </div>
         </nav>
       )}
@@ -156,7 +173,7 @@ export default function App() {
   else if (!lifters.length) body = <EmptyLifters onAdd={() => addLifter('Lifter', 'ember')} />
   else
     body = (
-      <main className="shell py-7 pb-24 sm:py-9 md:pb-16">
+      <main className="shell py-7 sm:py-9">
         {view === 'workouts' && <Workouts />}
         {view === 'bulk' && <Nutrition goal="bulk" />}
         {view === 'cut' && <Nutrition goal="cut" />}
@@ -178,30 +195,6 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Mobile tab bar */}
-      <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-surface md:hidden"
-        aria-label="Sections"
-      >
-        <div className="mx-auto grid max-w-lg grid-cols-4 pb-[env(safe-area-inset-bottom)]">
-          {NAV.map((n) => {
-            const active = view === n.id
-            return (
-              <button
-                key={n.id}
-                onClick={() => setView(n.id)}
-                aria-current={active ? 'page' : undefined}
-                className={`focus-ring relative flex h-12 items-center justify-center text-[12px] font-semibold transition-colors duration-[--t-fast] ${
-                  active ? 'text-accent' : 'text-ink-3'
-                }`}
-              >
-                {active && <span className="absolute inset-x-5 top-0 h-[2px] bg-accent" />}
-                {n.label}
-              </button>
-            )
-          })}
-        </div>
-      </nav>
     </div>
   )
 }

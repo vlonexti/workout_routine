@@ -1,5 +1,5 @@
 /*
- * IRON stores everything in Supabase. Point it at your project:
+ * Sexy Workouts stores everything in Supabase. Point it at your project:
  *
  *   1. Make a free project at https://supabase.com
  *   2. SQL Editor -> New query -> paste and run supabase/schema.sql

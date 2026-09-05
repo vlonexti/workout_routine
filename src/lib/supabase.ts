@@ -58,7 +58,7 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
     }
     if (res.status === 404 || /relation .* does not exist/i.test(detail)) {
       throw new DbError(
-        'The database is reachable but the IRON tables are missing. Run supabase/schema.sql in the SQL editor.',
+        'The database is reachable but the app tables are missing. Run supabase/schema.sql in the SQL editor.',
         res.status,
       )
     }
